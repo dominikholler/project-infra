@@ -1,22 +1,26 @@
 periodics:
-- name: periodic-kubevirtci-sync-crio-repository-weekly
+- name: periodic-kubevirtci-mirror-crio-repository-weekly
   cron: "25 0 * * 1"
   decorate: true
   annotations:
-      testgrid-create-test-group: "false"
+    testgrid-create-test-group: "false"
   decoration_config:
     timeout: 1h
     grace_period: 5m
   max_concurrency: 1
+  extra_refs:
+    - org: kubevirt
+      repo: project-infra
+      base_ref: main
+      workdir: true
   labels:
+    preset-gcs-credentials: "true"
     preset-shared-images: "true"
   cluster: prow-workloads
   spec:
     containers:
-      - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+      - image: quay.io/kubevirtci/bootstrap:v20220728-1410a63
         env:
-          - name: GOOGLE_APPLICATION_CREDENTIALS
-            value: /etc/gcs/service-account.json
           - name: OS
             value: CentOS_8_Stream
           - name: BUCKET_DIR
@@ -26,51 +30,17 @@ periodics:
           - name: BASE_REPOID
             value: devel_kubic_libcontainers_stable
           - name: CRIO_VERSIONS
-            value: "1.20,1.21"
-        command:
-          - "/usr/local/bin/runner.sh"
-          - "/bin/sh"
-          - "-c"
+            value: "1.21,1.22,1.23,1.24"
+        command: ["/bin/sh", "-ce"]
+        args:
           - |
-            set -e;
-            dnf install dnf-utils -y
-
-            sync_crio_repo_for_version () {
-              if [ -z "$1" ]
-              then
-                  CRIO_SUBDIR=""
-                  REPOID=$BASE_REPOID
-              else
-                  CRIO_SUBDIR=":cri-o:$1"
-                  REPOID="${BASE_REPOID}_cri-o_$1"
-              fi
-              curl -L -o $REPOID.repo https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable$CRIO_SUBDIR/$OS/devel:kubic:libcontainers:stable$CRIO_SUBDIR.repo
-              reposync -c $REPOID.repo -p ./$LOCAL_MIRROR_DIR -n --repoid=$REPOID --download-metadata
-            }
-
-            # First sync the shared stable repository
-            sync_crio_repo_for_version
-
-            # Loop over comma-separated list of cri-o versions
-            for i in $(echo $CRIO_VERSIONS | sed "s/,/ /g")
-            do
-              sync_crio_repo_for_version $i
-            done
-
-            gsutil rsync -d -r $LOCAL_MIRROR_DIR gs://$BUCKET_DIR
+            gcloud auth activate-service-account --key-file ${GOOGLE_APPLICATION_CREDENTIALS}
+            ./hack/mirror-crio.sh
         resources:
           requests:
             memory: "2Gi"
-        volumeMounts:
-          - name: gcs
-            mountPath: /etc/gcs
-            readOnly: false
-    volumes:
-      - name: gcs
-        secret:
-          secretName: gcs
 - name: periodic-kubevirtci-bump-kubevirt
-  interval: 24h
+  cron: "0 */12 * * *"
   annotations:
     testgrid-create-test-group: "false"
   decorate: true
@@ -87,34 +57,47 @@ periodics:
   labels:
     preset-dind-enabled: "true"
     preset-docker-mirror: "true"
+    preset-gcs-credentials: "true"
+    preset-github-credentials: "true"
   cluster: prow-workloads
   spec:
-    volumes:
-    - name: token
-      secret:
-        secretName: oauth-token
-    - name: gcs
-      secret:
-        secretName: gcs
     containers:
-    - image: quay.io/kubevirt/builder:2105310929-3310f7bdd
-      env:
-      - name: GIT_ASKPASS
-        value: "../project-infra/hack/git-askpass.sh"
-      - name: GOOGLE_APPLICATION_CREDENTIALS
-        value: /etc/gcs/service-account.json
+    - image: quay.io/kubevirtci/pr-creator:v20210920-0ef32ec
       command: ["/bin/sh", "-c"]
       args:
-      - ../project-infra/hack/git-pr.sh -c "cd ../kubevirt && make bump-kubevirtci" -b bump-kubevirtci -p ../kubevirt -T main
-      volumeMounts:
-      - name: token
-        mountPath: /etc/github
-      # docker-in-docker needs privileged mode
-      - name: gcs
-        mountPath: /etc/gcs
-        readOnly: false
+      - |
+        set -e
+        if labels-checker --org=kubevirt --repo=kubevirt --author=kubevirt-bot --branch-name=bump-kubevirtci --ensure-labels-missing=lgtm,approved,do-not-merge/hold --github-token-path=/etc/github/oauth; then
+          git-pr.sh -c "cd ../kubevirt && make bump-kubevirtci" -d "./hack/whatchanged.sh" -b bump-kubevirtci -p ../kubevirt -T main
+        fi
       securityContext:
         privileged: true
       resources:
         requests:
           memory: "8Gi"
+- name: periodic-kubevirtci-bump-cdi
+  cron: "30 1 * * *"
+  annotations:
+    testgrid-create-test-group: "false"
+  decorate: true
+  decoration_config:
+    timeout: 1h
+  max_concurrency: 1
+  extra_refs:
+  - org: kubevirt
+    repo: kubevirtci
+    base_ref: main
+    workdir: true
+  labels:
+    preset-docker-mirror: "true"
+    preset-github-credentials: "true"
+  cluster: prow-workloads
+  spec:
+    containers:
+    - image: quay.io/kubevirtci/pr-creator:v20210920-0ef32ec
+      command: ["/bin/sh", "-c"]
+      args:
+      - GIT_ASKPASS=/usr/local/bin/git-askpass.sh git-pr.sh -c "./hack/bump-cdi.sh" -r kubevirtci -b bump-cdi -T main -p $(pwd)
+      resources:
+        requests:
+          memory: "200Mi"

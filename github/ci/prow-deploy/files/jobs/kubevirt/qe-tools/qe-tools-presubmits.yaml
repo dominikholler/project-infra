@@ -1,0 +1,21 @@
+presubmits:
+  kubevirt/qe-tools:
+  - name: pull-qe-tools-make-test
+    always_run: true
+    decorate: true
+    cluster: ibm-prow-jobs
+    spec:
+      containers:
+      - command:
+        - /usr/local/bin/runner.sh
+        - /bin/sh
+        - -c
+        - make test
+        image: quay.io/kubevirtci/golang:v20220728-1410a63
+        args:
+        resources:
+          requests:
+            memory: "500Mi"
+        env:
+          - name: GIMME_GO_VERSION
+            value: "1.16"

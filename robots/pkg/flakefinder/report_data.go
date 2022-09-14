@@ -1,9 +1,11 @@
 package flakefinder
 
 import (
-	"github.com/joshdk/go-junit"
+	"fmt"
 	"sort"
 	"time"
+
+	"github.com/joshdk/go-junit"
 )
 
 type Params struct {
@@ -15,37 +17,50 @@ type Params struct {
 	PrNumbers       []int
 	Org             string
 	Repo            string
-	FailuresForJobs map[int]*JobFailures
+	FailuresForJobs map[string]*JobFailures
 }
 
 type Details struct {
-	Succeeded int
-	Skipped   int
-	Failed    int
-	Severity  string
-	Jobs      []*Job
+	Succeeded int    `json:"succeeded"`
+	Skipped   int    `json:"skipped"`
+	Failed    int    `json:"failed"`
+	Severity  string `json:"severity"`
+	Jobs      []*Job `json:"jobs"`
 }
 
 type Job struct {
-	BuildNumber int
-	Severity    string
-	PR          int
-	Job         string
+	BuildNumber int    `json:"buildNumber"`
+	Severity    string `json:"severity"`
+	PR          int    `json:"pr"`
+	Job         string `json:"job"`
 }
 
 type JobFailures struct {
-	BuildNumber int
-	PR          int
-	Job         string
-	Failures    int
+	BuildNumber int    `json:"buildNumber"`
+	PR          int    `json:"pr"`
+	Job         string `json:"job"`
+	Failures    int    `json:"failures"`
 }
+
+type Jobs []*Job
+
+func (jobs Jobs) Len() int      { return len(jobs) }
+func (jobs Jobs) Swap(i, j int) { jobs[i], jobs[j] = jobs[j], jobs[i] }
+
+type ByBuildNumber struct{ Jobs }
+
+func (b ByBuildNumber) Less(i, j int) bool { return b.Jobs[i].BuildNumber < b.Jobs[j].BuildNumber }
 
 func CreateFlakeReportData(results []*JobResult, prNumbers []int, endOfReport time.Time, org string, repo string, startOfReport time.Time) Params {
 	data := map[string]map[string]*Details{}
 	headers := []string{}
 	tests := []string{}
-	failuresForJobs := map[int]*JobFailures{}
+	failuresForJobs := map[string]*JobFailures{}
 	headerMap := map[string]struct{}{}
+
+	createFailuresForJobsKey := func(result *JobResult) string {
+		return fmt.Sprintf("%s-%d", result.Job, result.BuildNumber)
+	}
 
 	for _, result := range results {
 
@@ -54,16 +69,17 @@ func CreateFlakeReportData(results []*JobResult, prNumbers []int, endOfReport ti
 			for _, test := range suite.Tests {
 				if test.Status == junit.StatusFailed || test.Status == junit.StatusError {
 
-					_, exists := failuresForJobs[result.BuildNumber]
+					failuresForJobsKey := createFailuresForJobsKey(result)
+					_, exists := failuresForJobs[failuresForJobsKey]
 					if !exists {
-						failuresForJobs[result.BuildNumber] = &JobFailures{
+						failuresForJobs[failuresForJobsKey] = &JobFailures{
 							BuildNumber: result.BuildNumber,
 							PR:          result.PR,
 							Job:         result.Job,
 							Failures:    0,
 						}
 					}
-					failuresForJobs[result.BuildNumber].Failures = failuresForJobs[result.BuildNumber].Failures + 1
+					failuresForJobs[failuresForJobsKey].Failures = failuresForJobs[failuresForJobsKey].Failures + 1
 
 					testEntry := data[test.Name]
 					if testEntry == nil {
@@ -88,7 +104,7 @@ func CreateFlakeReportData(results []*JobResult, prNumbers []int, endOfReport ti
 
 	// second enrich failed tests with additional information
 	for _, result := range results {
-		if _, exists := failuresForJobs[result.BuildNumber]; !exists {
+		if _, exists := failuresForJobs[createFailuresForJobsKey(result)]; !exists {
 			// if not in the map now, then skip it
 			continue
 		}
@@ -115,7 +131,7 @@ func CreateFlakeReportData(results []*JobResult, prNumbers []int, endOfReport ti
 	// third, calculate the severity
 	// second enrich failed tests with additional information
 	for _, result := range results {
-		if _, exists := failuresForJobs[result.BuildNumber]; !exists {
+		if _, exists := failuresForJobs[createFailuresForJobsKey(result)]; !exists {
 			// if not in the map now, then skip it
 			continue
 		}
@@ -132,6 +148,14 @@ func CreateFlakeReportData(results []*JobResult, prNumbers []int, endOfReport ti
 
 				SetSeverity(entry)
 			}
+		}
+	}
+
+	sort.Strings(headers)
+
+	for _, jobsByNames := range data {
+		for _, details := range jobsByNames {
+			sort.Sort(ByBuildNumber{details.Jobs})
 		}
 	}
 
@@ -193,10 +217,30 @@ func SortTestsByRelevance(data map[string]map[string]*Details, tests []string) (
 			}
 			flakinessToTestNames[details.Severity] = append(flakinessToTestNames[details.Severity], test)
 
-			if _, exists := testsToSeveritiesWithNumbers[test]; !exists {
-				testsToSeveritiesWithNumbers[test] = map[string]int{details.Severity: 0}
+			// Counting the occurrences a test failed will cause tests with lower number of failures but
+			// same number of appearances to appear before tests that have higher number of failures.
+			// Also using the ratio of #tests_failed / #tests_succeeded as a factor emphasizes tests
+			// with less failures but a high ratio far more than tests with higher number of tests.
+			// As we want to emphasize tests that have higher failure numbers over those that have less failures,
+			// we tabularize the severity as a factor according to the relation of #tests_failed / #tests_succeeded
+			// We then multiply that value by the number of failures.
+			var severityRatio float32
+			switch {
+			case details.Failed > 3*details.Succeeded:
+				severityRatio = 1.75
+			case details.Failed > details.Succeeded:
+				severityRatio = 1.5
+			case details.Failed < details.Succeeded:
+				severityRatio = 0.75
+			default:
+				severityRatio = 1
 			}
-			testsToSeveritiesWithNumbers[test][details.Severity] = testsToSeveritiesWithNumbers[test][details.Severity] + 1
+			severityRatio = severityRatio * float32(details.Failed)
+			if _, exists := testsToSeveritiesWithNumbers[test]; !exists {
+				testsToSeveritiesWithNumbers[test] = map[string]int{details.Severity: int(severityRatio)}
+			} else {
+				testsToSeveritiesWithNumbers[test][details.Severity] = testsToSeveritiesWithNumbers[test][details.Severity] + int(severityRatio)
+			}
 
 			foundTests[test] = struct{}{}
 		}

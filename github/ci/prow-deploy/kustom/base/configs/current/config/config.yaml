@@ -9,10 +9,10 @@ plank:
       timeout: 2h
       grace_period: 15s
       utility_images:
-        clonerefs: "gcr.io/k8s-prow/clonerefs:v20210617-a5d241a839"
-        initupload: "gcr.io/k8s-prow/initupload:v20210617-a5d241a839"
-        entrypoint: "gcr.io/k8s-prow/entrypoint:v20210617-a5d241a839"
-        sidecar: "gcr.io/k8s-prow/sidecar:v20210617-a5d241a839"
+        clonerefs: "gcr.io/k8s-prow/clonerefs:v20220908-f78f19e6a6"
+        initupload: "gcr.io/k8s-prow/initupload:v20220908-f78f19e6a6"
+        entrypoint: "gcr.io/k8s-prow/entrypoint:v20220908-f78f19e6a6"
+        sidecar: "gcr.io/k8s-prow/sidecar:v20220908-f78f19e6a6"
       gcs_configuration:
         bucket: "kubevirt-prow"
         path_strategy: "explicit"
@@ -33,6 +33,17 @@ deck:
       - podinfo.json
     - lens:
         name: buildlog
+        config:
+          highlight_regexes:
+          # default patterns, see https://github.com/kubernetes/test-infra/blob/e7ccf79861d3c53dfaa6c784c0c8537922c4c0cc/prow/spyglass/lenses/buildlog/lens.go#L95
+          - ^E\d{4} \d\d:\d\d:\d\d\.\d+
+          - "(Error|ERROR|error)s?:"
+          - (FAIL|Failure \[)\b
+          - "timed out"
+          - panic\b
+          # own patterns
+          - \[FAILED\]
+          - "fatal: "
       required_files:
         - build-log.txt
     - lens:
@@ -77,6 +88,8 @@ tide:
   merge_method:
     kubevirt/libguestfs-appliance: merge
     kubevirt/containerized-data-importer: squash
+    kubevirt/cluster-api-provider-kubevirt: merge
+    kubevirt/containerdisks: squash
     kubevirt/kubevirt: merge
     kubevirt/machine-remediation-operator: squash
     kubevirt/project-infra: squash
@@ -86,6 +99,7 @@ tide:
     kubevirt/kubevirt-tutorial: squash
     kubevirt/community: squash
     kubevirt/hostpath-provisioner: squash
+    kubevirt/hostpath-provisioner-operator: squash
     kubevirt/katacoda-scenarios: squash
     kubevirt/demo: squash
     k8snetworkplumbingwg/ovs-cni: squash
@@ -105,15 +119,20 @@ tide:
     kubevirt/kubevirt-template-validator: squash
     kubevirt/kubevirt-ssp-operator: squash
     kubevirt/csi-driver: squash
-    kubevirt/ssp-operator: rebase
+    kubevirt/ssp-operator: merge
     kubevirt/must-gather: squash
     kubevirt/user-guide: squash
     kubevirt/terraform-provider-kubevirt: merge
+    kubevirt/kubevirt-velero-plugin: squash
+    kubevirt/qe-tools: merge
+    kubevirt/cloud-provider-kubevirt: merge
+    kubevirt/secrets: merge
 
   queries:
   - repos:
     - kubevirt/libguestfs-appliance
     - kubevirt/project-infra
+    - kubevirt/cluster-api-provider-kubevirt
     - kubevirt/machine-remediation-operator
     - kubevirt/kubevirtci
     - kubevirt/kubevirt.github.io
@@ -124,6 +143,11 @@ tide:
     - kubevirt/demo
     - kubevirt/kubectl-virt-plugin
     - kubevirt/user-guide
+    - kubevirt/terraform-provider-kubevirt
+    - kubevirt/kubevirt-velero-plugin
+    - kubevirt/qe-tools
+    - kubevirt/cloud-provider-kubevirt
+    - kubevirt/secrets
     labels:
     - lgtm
     - approved
@@ -135,9 +159,11 @@ tide:
     - needs-rebase
     - "dco-signoff: no"
   - repos:
+    - kubevirt/containerdisks
     - kubevirt/kubevirt
     - kubevirt/containerized-data-importer
     - kubevirt/hostpath-provisioner
+    - kubevirt/hostpath-provisioner-operator
     - k8snetworkplumbingwg/ovs-cni
     - kubevirt/macvtap-cni
     - kubevirt/cluster-network-addons-operator
@@ -172,18 +198,21 @@ tide:
     '*': https://prow.ci.kubevirt.io/pr
   context_options:
     orgs:
-     kubevirt:
-      repos:
-        dashboard:
-          skip-unknown-contexts: true
-          from-branch-protection: true
+      kubevirt:
+        repos:
+          dashboard:
+            skip-unknown-contexts: true
+            from-branch-protection: true
+      nmstate:
+        repos:
+          kubernetes-nmstate:
+            skip-unknown-contexts: true
 
 slack_reporter_configs:
   '*':
     job_types_to_report:
       - postsubmit
       - periodic
-      - batch
     job_states_to_report:
       - failure
       - error
@@ -273,6 +302,10 @@ branch-protection:
           branches:
             main:
               protect: true
+        containerdisks:
+          branches:
+            main:
+              protect: true
         libguestfs-appliance:
           branches:
             main:
@@ -283,15 +316,20 @@ branch-protection:
               protect: true
         containerized-data-importer:
           branches:
-            master:
+            main:
+              protect: true
+        cluster-api-provider-kubevirt:
+          branches:
+            main:
+              protect: true
+        kubevirt-velero-plugin:
+          branches:
+            main:
               protect: true
         hyperconverged-cluster-operator:
           branches:
             main:
               protect: true
-              required_status_checks:
-                contexts:
-                  - coverage/coveralls
             release-1.2:
               protect: true
               required_status_checks:
@@ -303,7 +341,7 @@ branch-protection:
               protect: true
         cluster-network-addons-operator:
           branches:
-            master:
+            main:
               protect: true
             release-0.27:
               protect: true
@@ -327,7 +365,7 @@ branch-protection:
               protect: true
         csi-driver:
           branches:
-            master:
+            main:
               protect: true
         kubectl-virt-plugin:
           protect: true
@@ -342,17 +380,23 @@ branch-protection:
                   - ci/prow/openshift-e2e
         community:
           branches:
-            master:
+            main:
               protect: true
         user-guide:
           branches:
-            master:
+            main:
               protect: true
             gh-pages:
               protect: true
             source:
               protect: true
         terraform-provider-kubevirt:
+          branches:
+            main:
+              protect: true
+        qe-tools:
+          protect: true
+        cloud-provider-kubevirt:
           branches:
             main:
               protect: true
@@ -373,6 +417,7 @@ branch-protection:
 
 push_gateway:
   endpoint: pushgateway
+  serve_metrics: true
 
 presets:
 - labels:
@@ -386,6 +431,17 @@ presets:
   volumeMounts:
   - name: docker-graph
     mountPath: /docker-graph
+- labels:
+    preset-podman-in-container-enabled: "true"
+  env:
+  - name: PODMAN_IN_CONTAINER_ENABLED
+    value: "true"
+  volumes:
+  - name: podman-data
+    emptyDir: {}
+  volumeMounts:
+  - name: podman-data
+    mountPath: /var/lib/containers
 - labels:
     preset-docker-mirror: "true"
   volumes:
@@ -401,6 +457,10 @@ presets:
   env:
   - name: CA_CERT_FILE
     value: /etc/docker-mirror-proxy/ca.crt
+  - name: CONTAINER_HTTP_PROXY
+    value: http://docker-mirror-proxy.kubevirt-prow.svc:3128
+  - name: CONTAINER_HTTPS_PROXY
+    value: http://docker-mirror-proxy.kubevirt-prow.svc:3128
   volumes:
   - name: docker-mirror-proxy-ca-cert
     configMap:
@@ -473,6 +533,8 @@ presets:
     value: /etc/kubevirtci-cred/username
   - name: QUAY_PASSWORD
     value: /etc/kubevirtci-cred/password
+  - name: QUAY_OAUTH_TOKEN
+    value: /etc/kubevirtci-cred/token
   volumes:
   - name: kubevirtci-cred
     secret:
@@ -512,3 +574,51 @@ presets:
   - name: kubevirtci-cred
     mountPath: /etc/kubevirtci-cred
     readOnly: true
+- labels:
+    preset-github-credentials: "true"
+  env:
+  - name: GIT_ASKPASS
+    value: ../project-infra/hack/git-askpass.sh
+  volumes:
+  - name: github-token
+    secret:
+      secretName: oauth-token
+      defaultMode: 0400
+  volumeMounts:
+    - name: github-token
+      mountPath: /etc/github
+- labels:
+    preset-gcs-credentials: "true"
+  env:
+  - name: GOOGLE_APPLICATION_CREDENTIALS
+    value: /etc/gcs/service-account.json
+  volumes:
+  - name: gcs
+    secret:
+      secretName: gcs
+      defaultMode: 0400
+  volumeMounts:
+  - name: gcs
+    mountPath: /etc/gcs
+    readOnly: true
+
+# default preset with no labels, settings common to all jobs
+- env:
+  - name: GOPROXY
+    value: "https://proxy.golang.org|direct"
+
+managed_webhooks:
+  # This has to be true if any of the managed repo/org is using the legacy global token that is manually created.
+  respect_legacy_global_token: true
+  # Config for orgs and repos that have been onboarded to this Prow instance.
+  org_repo_config:
+    kubevirt:
+      token_created_after: 2021-07-15T01:00:00Z
+    k8snetworkplumbingwg/kubemacpool:
+      token_created_after: 2021-07-16T01:00:00Z
+    k8snetworkplumbingwg/ovs-cni:
+      token_created_after: 2021-07-16T01:00:00Z
+    nmstate/kubernetes-nmstate:
+      token_created_after: 2021-07-16T01:00:00Z
+    nmstate/nmstate:
+      token_created_after: 2021-07-16T01:00:00Z

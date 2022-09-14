@@ -3,7 +3,7 @@ periodics:
   cron: "2 2 * * *"
   decorate: true
   annotations:
-    testgrid-create-test-group: "false"
+    testgrid-dashboards: kubevirt-hyperconverged-cluster-operator-periodics
   decoration_config:
     timeout: 1h
     grace_period: 5m
@@ -11,6 +11,7 @@ periodics:
   labels:
     preset-dind-enabled: "true"
     preset-docker-mirror-proxy: "true"
+    preset-gcs-credentials: "true"
     preset-shared-images: "true"
     preset-kubevirtci-quay-credential: "true"
     rehearsal.allowed: "true"
@@ -24,10 +25,7 @@ periodics:
     nodeSelector:
       type: bare-metal-external
     containers:
-    - image: quay.io/kubevirtci/bootstrap:v20201119-a5880e0
-      env:
-      - name: GOOGLE_APPLICATION_CREDENTIALS
-        value: /etc/gcs/service-account.json
+    - image: quay.io/kubevirtci/bootstrap:v20220728-1410a63
       command:
         - "/usr/local/bin/runner.sh"
         - "/bin/bash"
@@ -39,11 +37,3 @@ periodics:
       resources:
         requests:
           memory: "8Gi"
-      volumeMounts:
-        - name: gcs
-          mountPath: /etc/gcs
-          readOnly: false
-    volumes:
-      - name: gcs
-        secret:
-          secretName: gcs

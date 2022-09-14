@@ -1,12 +1,12 @@
 orgs:
   kubevirt:
     admins:
+      - brianmcarey
       - caniszczyk
       - codificat
       - davidvossel
       - dhiller
       - fabiand
-      - fgimenez
       - kubevirt-bot
       - rmohr
       - stoniko
@@ -20,6 +20,8 @@ orgs:
     has_repository_projects: true
     location: ""
     members:
+      - 0xFelix
+      - aburdenthehand
       - acardace
       - AdamJ
       - adityaramteke
@@ -30,6 +32,7 @@ orgs:
       - AlonaKaplan
       - alonsadan
       - alosadagrande
+      - alromeros
       - andreabolognani
       - andreyod
       - arnongilboa
@@ -42,7 +45,9 @@ orgs:
       - booxter
       - borod108
       - brybacki
+      - codingben
       - crobinso
+      - cwilkers
       - cynepco3hahue
       - danielBelenky
       - danielerez
@@ -53,6 +58,7 @@ orgs:
       - dominikholler
       - doron-fediuck
       - dshchedr
+      - dteplits
       - duyanyan
       - e-minguez
       - EdDev
@@ -60,11 +66,14 @@ orgs:
       - enp0s3
       - erkanerol
       - ezrasilvera
-      - fdupont-redhat
+      - fabiendupont
       - fedepaol
+      - fgimenez
+      - fossedihelm
       - fromanirh
       - gabrielecerami
       - gbenhaim
+      - geetikakay
       - gonzolino
       - gouyang
       - gsr-shanks
@@ -76,6 +85,7 @@ orgs:
       - ifireball
       - igoihman
       - iholder-redhat
+      - Barakmor1
       - ILpinto
       - InbarRose
       - iranzo
@@ -84,11 +94,13 @@ orgs:
       - itamarh
       - j-griffith
       - jakub-dzon
+      - jberkus
       - jean-edouard
       - jelkosz
       - jhernand
       - JinjunXiong
       - jniederm
+      - jobbler
       - jordigilh
       - jparrill
       - jtomasek
@@ -96,10 +108,13 @@ orgs:
       - krsacme
       - ksimon1
       - kubevirt-commenter-bot
+      - kvaps
       - kwiesmueller
       - lukas-bednar
       - lveyde
+      - lyarwood
       - machacekondra
+      - machadovilaca
       - maiqueb
       - mansam
       - marceloamaral
@@ -115,6 +130,7 @@ orgs:
       - mlsorensen
       - mmazur
       - mmirecki
+      - mrnold
       - mshitrit
       - myakove
       - mykaul
@@ -128,6 +144,8 @@ orgs:
       - omeryahud
       - openshift-ci-robot
       - openshift-merge-robot
+      - opokornyy
+      - orelmisan
       - orenc1
       - ormergi
       - oshoval
@@ -135,12 +153,14 @@ orgs:
       - petrkotas
       - phoracek
       - pkliczewski
+      - prnaraya
       - ptrnull
       - qinqon
       - qwang1
       - RamLavi
       - ravidbro
       - rawagner
+      - razo7
       - rgolangh
       - rhrazdil
       - rnetser
@@ -168,11 +188,14 @@ orgs:
       - thetechnick
       - tiraboschi
       - tomob
+      - usrbinkat
       - vasiliy-ul
       - vatsalparekh
       - victortoso
+      - VirrageS
       - vladikr
       - vojtechszocs
+      - xphyr
       - xpivarc
       - yanirq
       - yossisegev
@@ -209,6 +232,7 @@ orgs:
         has_projects: false
         has_wiki: false
       cdi-api-reference:
+        default_branch: main
         description: Containerized Data Importer API Reference
         has_projects: true
       cdi-operator:
@@ -216,6 +240,7 @@ orgs:
       client-go:
         description: Go client for kubevirt
         has_projects: true
+        default_branch: main
       client-python:
         description: An auto-generated python SDK to interact with KubeVirt resources
         has_projects: false
@@ -224,8 +249,7 @@ orgs:
         has_projects: true
       cloud-provider-kubevirt:
         description: Kubernetes cloud-provider for KubeVirt
-        has_projects: false
-        has_wiki: false
+        has_projects: true
       cluster-api-provider-external:
         description: The external provider implementation of the Cluster Management API.
         has_projects: true
@@ -257,6 +281,9 @@ orgs:
       containerized-data-importer:
         description: Data Import Service for kubernetes, designed with kubevirt in mind.
         has_projects: true
+      cluster-api-provider-kubevirt:
+        description: Cluster API Provider for KubeVirt
+        has_projects: false
       controller-lifecycle-operator-sdk:
         has_projects: true
       cpu-nfd-plugin:
@@ -265,6 +292,7 @@ orgs:
       csi-driver:
         description: KubeVirt CSI driver
         has_projects: true
+        default_branch: main
       demo:
         allow_rebase_merge: false
         description: Easy to use KubeVirt demo based on minikube.
@@ -317,6 +345,9 @@ orgs:
         description: 'Incubating: A number of Kubernetes device-plugins developed and useful for KubeVirt'
         has_projects: false
         has_wiki: false
+      kubevirt-velero-plugin:
+        description: Plugin to Velero which automates backing up and restoring KubeVirt/CDI objects
+        has_projects: true
       libguestfs-appliance:
         allow_rebase_merge: false
         allow_squash_merge: false
@@ -355,7 +386,7 @@ orgs:
         homepage: https://www.kubevirt.io/
       kubevirt.github.io:
         allow_rebase_merge: false
-        default_branch: source
+        default_branch: main
         description: KubeVirt website repo, documentation at https://kubevirt.io/user-guide/
         has_projects: false
         has_wiki: false
@@ -438,6 +469,10 @@ orgs:
         default_branch: main
         description: Terraform provider for Kubevirt platform
         has_projects: true
+      tekton-tasks-operator:
+        default_branch: main
+        description: Operator which deploys kubevirt-tekton-tasks in cluster
+        has_projects: true
       test-infra-containers:
         description: All containers which are useful for testing (tgtd, cinder, ceph, gluster, ...)
         has_projects: true
@@ -446,6 +481,7 @@ orgs:
         has_projects: false
         has_wiki: false
         homepage: https://kubevirt.io/user-guide
+        default_branch: main
       v2v-job:
         allow_rebase_merge: false
         allow_squash_merge: false
@@ -484,6 +520,18 @@ orgs:
         has_projects: true
       web-ui-operator:
         description: Operator for web-ui
+        has_projects: true
+      containerized-data-importer-api:
+        description: Containerized Data Importer API definitions
+        default_branch: main
+        has_projects: true
+      api:
+        description: KubeVirt API definition
+        default_branch: main
+        has_projects: true
+      containerdisks:
+        description: Officially built and maintained containerdisks of the KubeVirt project
+        default_branch: main
         has_projects: true
     teams:
       QE:
@@ -526,12 +574,44 @@ orgs:
           cpu-nfd-plugin: admin
           kubevirt: admin
           node-labeller: read
+      kubevirt-velero-plugin-maintainers:
+        description: ""
+        maintainers:
+          - tomob
+          - aglitke
+          - brybacki
+        repos:
+          kubevirt-velero-plugin: admin
+      containerized-data-importer-api-maintainers:
+        description: ""
+        maintainers:
+          - mhenriks
+          - awels
+          - aglitke
+        repos:
+          containerized-data-importer-api: admin
+      api:
+        description: ""
+        maintainers:
+          - mhenriks
+          - rmohr
+        repos:
+          api: admin
+      cloud-provider-kubevirt-maintainers:
+        maintainers:
+          - nirarg
+          - davidvossel
+          - rmohr
+          - mfranczy
+          - rhrazdil
+          - qinqon
+        repos:
+          cloud-provider-kubevirt: admin
       maintainers:
         description: ""
         maintainers:
           - fabiand
           - davidvossel
-          - codificat
           - rmohr
           - kubevirt-bot
         members:
@@ -568,7 +648,7 @@ orgs:
           libvirt: write
           node-maintenance-operator: write
           project-infra: write
-          qe-tools: read
+          qe-tools: admin
           run: write
           storage-demo: write
           user-guide: write
@@ -611,7 +691,8 @@ orgs:
         members:
           - pkliczewski
           - mmirecki
-          - yuvalturg
+          - nunnatsa
+          - tiraboschi
         privacy: closed
         repos:
           must-gather: admin
@@ -664,16 +745,25 @@ orgs:
         maintainers:
           - dhiller
           - rmohr
-          - fgimenez
+          - brianmcarey
+          - enp0s3
         members:
           - phoracek
+          - xpivarc
         privacy: closed
+        repos:
+          secrets: admin
       terraform-provider-kubevirt-maintainers:
         maintainers:
           - nirarg
           - isaacdorfman
         repos:
           terraform-provider-kubevirt: admin
+      rerun-jobs-hco:
+        description: can rerun failed job in the hyperconverged-cluster-operator repository
+        maintainers:
+        - nunnatsa
+        - tiraboschi
       sig-security:
         description: ""
         maintainers:
@@ -683,13 +773,25 @@ orgs:
       ssp-maintainers:
         description: ""
         maintainers:
-          - danielBelenky
+          - dhiller
+          - dominikholler
         members:
           - omeryahud
         privacy: closed
         repos:
           kubevirt-ssp-operator: read
           ssp-operator: read
+      ssp-admin:
+        description: "Administration group to check for issues in ssp repos"
+        maintainers:
+        - dhiller
+        - dominikholler
+        - ksimon1
+        privacy: closed
+        repos:
+          kubevirt-ssp-operator: admin
+          ssp-operator: admin
+          kvm-info-nfd-plugin: admin
       team-ux-review:
         description: ""
         maintainers:
@@ -698,6 +800,22 @@ orgs:
           - serenamarie125
           - beanh66
         privacy: closed
+      tekton-tasks-operator-admin:
+        description: "Administration group to maintain settings in tekton operator repo"
+        maintainers:
+          - dominikholler
+          - ksimon1
+        privacy: closed
+        repos:
+          tekton-tasks-operator: admin
+      tekton-tasks-operator:
+        description: "People working in tekton operator repo"
+        maintainers:
+          - dominikholler
+          - ksimon1
+        privacy: closed
+        repos:
+          tekton-tasks-operator: write
       web-ui-maintainers:
         description: ""
         maintainers:
@@ -718,16 +836,19 @@ orgs:
           web-ui: write
           web-ui-components: write
           web-ui-operator: write
-      website-maintainers:
-        description: ""
+      community-team:
+        description: "Maintainers of KubeVirt community and websites"
         maintainers:
           - fabiand
-          - codificat
         members:
-          - matthewcarleton
-          - mazzystr
-          - AdamJ
+          - cwilkers
+          - aburdenthehand
         privacy: closed
         repos:
           cloud-image-builder: admin
           community: admin
+          kubevirt.github.io: write
+          user-guide: write
+          demo: write
+          katacoda-scenarios: admin
+          kubevirt-tutorial: write

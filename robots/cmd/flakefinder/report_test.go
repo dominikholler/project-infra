@@ -25,12 +25,12 @@ var _ = Describe("report.go", func() {
 	When("creates filename with date and merged as hours", func() {
 
 		It("creates a filename for week", func() {
-			fileName := CreateReportFileName(reportTime, 24*7*time.Hour)
+			fileName := CreateReportFileNameWithEnding(reportTime, 24*7*time.Hour, "html")
 			Expect(fileName).To(BeEquivalentTo("flakefinder-2019-08-23-168h.html"))
 		})
 
 		It("creates a filename for day", func() {
-			fileName := CreateReportFileName(reportTime, 24*time.Hour)
+			fileName := CreateReportFileNameWithEnding(reportTime, 24*time.Hour, "html")
 			Expect(fileName).To(BeEquivalentTo("flakefinder-2019-08-23-024h.html"))
 		})
 
@@ -174,14 +174,14 @@ var _ = Describe("report.go", func() {
 					{BuildNumber: 1742, Severity: "red", PR: 1427, Job: "testblah"},
 				}}},
 			}, Headers: []string{"a", "b", "c"}, Tests: []string{"t1", "t2", "t3"}, EndOfReport: "2019-08-23", Org: "kubevirt", Repo: "kubevirt",
-				FailuresForJobs: map[int]*flakefinder.JobFailures{
-					1742: {
+				FailuresForJobs: map[string]*flakefinder.JobFailures{
+					"1742": {
 						BuildNumber: 1742,
 						PR:          17,
 						Job:         "k8s-1.18-whatever",
 						Failures:    66,
 					},
-					4217: {
+					"4217": {
 						BuildNumber: 4217,
 						PR:          42,
 						Job:         "k8s-1.19-whocares",
@@ -195,6 +195,50 @@ var _ = Describe("report.go", func() {
 			Expect(buffer.String()).To(ContainSubstring("4217"))
 			Expect(buffer.String()).To(ContainSubstring("k8s-1.18-whatever"))
 			Expect(buffer.String()).To(ContainSubstring("k8s-1.19-whocares"))
+		})
+
+	})
+
+	When("rendering report csv", func() {
+
+		var buffer bytes.Buffer
+
+		prepareBuffer := func() {
+			buffer = bytes.Buffer{}
+			data := CSVParams{
+				Data: map[string]map[string]*flakefinder.Details{
+					"t1": {
+						"a": &flakefinder.Details{Failed: 4, Succeeded: 1, Skipped: 2, Severity: "red", Jobs: []*flakefinder.Job{
+							{
+								BuildNumber: 1742,
+								Severity:    "red",
+								PR:          4217,
+								Job:         "testJob",
+							}}},
+						"b": &flakefinder.Details{Failed: 5, Succeeded: 2, Skipped: 3, Severity: "yellow", Jobs: []*flakefinder.Job{}},
+					},
+					"t2": {
+						"a": &flakefinder.Details{Failed: 8, Succeeded: 2, Skipped: 4, Severity: "cyan", Jobs: []*flakefinder.Job{}},
+						"b": &flakefinder.Details{Failed: 9, Succeeded: 3, Skipped: 5, Severity: "blue", Jobs: []*flakefinder.Job{}},
+					},
+				},
+			}
+			err := flakefinder.WriteTemplateToOutput(ReportCSVTemplate, data, &buffer)
+			Expect(err).ToNot(HaveOccurred())
+			if testOptions.printTestOutput {
+				logger := log.New(os.Stdout, "reportCSV:", log.Flags())
+				logger.Printf(buffer.String())
+			}
+		}
+
+		It("contains headers", func() {
+			prepareBuffer()
+			Expect(buffer.String()).To(ContainSubstring("\"Test Name\",\"Test Lane\",\"Severity\",\"Failed\",\"Succeeded\",\"Skipped\",\"Jobs (JSON)\""))
+		})
+
+		It("contains data", func() {
+			prepareBuffer()
+			Expect(buffer.String()).To(ContainSubstring("\"t1\",\"a\",\"red\",4,1,2"))
 		})
 
 	})

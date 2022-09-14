@@ -1,4 +1,4 @@
-apiVersion: batch/v1beta1
+apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: branch-protector
@@ -14,7 +14,7 @@ spec:
         spec:
           containers:
             - name: branchprotector
-              image: gcr.io/k8s-prow/branchprotector:v20200623-9f5410055c
+              image: gcr.io/k8s-prow/branchprotector:v20220908-f78f19e6a6
               args:
                 - --config-path=/etc/config/config.yaml
                 - --job-config-path=/etc/job-config

@@ -1,6 +1,7 @@
 package flakefinder
 
 import (
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -60,13 +61,134 @@ var _ = Describe("report.go", func() {
 
 		It("returns tests of same severity sorted descending by number of severity points", func() {
 			data := map[string]map[string]*Details{
-				"t1": {"a": &Details{Failed: 3, Succeeded: 1, Skipped: 2, Severity: HeavilyFlaky, Jobs: []*Job{}}, "b": &Details{Failed: 3, Succeeded: 1, Skipped: 2, Severity: MostlyFlaky, Jobs: []*Job{}}},
-				"t2": {"a": &Details{Failed: 2, Succeeded: 1, Skipped: 2, Severity: HeavilyFlaky, Jobs: []*Job{}}, "b": &Details{Failed: 2, Succeeded: 1, Skipped: 2, Severity: MildlyFlaky, Jobs: []*Job{}}},
-				"t3": {"a": &Details{Failed: 4, Succeeded: 1, Skipped: 2, Severity: HeavilyFlaky, Jobs: []*Job{}}, "b": &Details{Failed: 4, Succeeded: 1, Skipped: 2, Severity: HeavilyFlaky, Jobs: []*Job{}}},
+				"t1": {
+					"a": &Details{Failed: 3, Succeeded: 1, Skipped: 2, Severity: HeavilyFlaky, Jobs: []*Job{}},
+					"b": &Details{Failed: 3, Succeeded: 1, Skipped: 2, Severity: MostlyFlaky, Jobs: []*Job{}},
+				},
+				"t2": {
+					"a": &Details{Failed: 2, Succeeded: 1, Skipped: 2, Severity: HeavilyFlaky, Jobs: []*Job{}},
+					"b": &Details{Failed: 2, Succeeded: 1, Skipped: 2, Severity: MildlyFlaky, Jobs: []*Job{}},
+				},
+				"t3": {
+					"a": &Details{Failed: 4, Succeeded: 1, Skipped: 2, Severity: HeavilyFlaky, Jobs: []*Job{}},
+					"b": &Details{Failed: 4, Succeeded: 1, Skipped: 2, Severity: HeavilyFlaky, Jobs: []*Job{}},
+				},
 			}
 
 			Expect(SortTestsByRelevance(data, tests)).To(BeEquivalentTo([]string{"t3", "t1", "t2"}))
 		})
+
+		type testData struct {
+			testName  string
+			failed    []int
+			succeeded []int
+			skipped   []int
+			severity  string
+		}
+
+		DescribeTable("returns tests of same severity weighted by total number of tests", func(expectations []testData, expectedTestNameOrder []string) {
+			testData := map[string]map[string]*Details{}
+			for _, expectation := range expectations {
+				testData[expectation.testName] = map[string]*Details{}
+				for index, failed := range expectation.failed {
+					testData[expectation.testName][fmt.Sprint(index)] = &Details{Failed: failed, Succeeded: expectation.succeeded[index], Skipped: expectation.skipped[index], Severity: expectation.severity, Jobs: []*Job{}}
+				}
+			}
+
+			Expect(SortTestsByRelevance(testData, tests)).To(BeEquivalentTo(expectedTestNameOrder))
+		},
+			Entry("zeros shouldn't be a problem",
+				[]testData{
+					{testName: "t1", failed: []int{2}, succeeded: []int{0}, skipped: []int{2}, severity: HeavilyFlaky},
+					{testName: "t2", failed: []int{1}, succeeded: []int{0}, skipped: []int{2}, severity: HeavilyFlaky},
+					{testName: "t3", failed: []int{3}, succeeded: []int{0}, skipped: []int{2}, severity: HeavilyFlaky},
+				},
+				[]string{"t3", "t1", "t2"},
+			),
+			Entry("the more failures the higher",
+				[]testData{
+					{testName: "t1", failed: []int{2}, succeeded: []int{1}, skipped: []int{2}, severity: HeavilyFlaky},
+					{testName: "t2", failed: []int{1}, succeeded: []int{1}, skipped: []int{2}, severity: HeavilyFlaky},
+					{testName: "t3", failed: []int{3}, succeeded: []int{1}, skipped: []int{2}, severity: HeavilyFlaky},
+				},
+				[]string{"t3", "t1", "t2"},
+			),
+			Entry("multiple values with zeros",
+				[]testData{
+					{testName: "t1", failed: []int{2, 0}, succeeded: []int{1, 0}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+					{testName: "t2", failed: []int{1, 0}, succeeded: []int{1, 0}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+					{testName: "t3", failed: []int{3, 0}, succeeded: []int{1, 0}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+				},
+				[]string{"t3", "t1", "t2"},
+			),
+			Entry("multiple values",
+				[]testData{
+					{testName: "t1", failed: []int{4, 5}, succeeded: []int{1, 1}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+					{testName: "t2", failed: []int{3, 4}, succeeded: []int{1, 1}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+					{testName: "t3", failed: []int{6, 7}, succeeded: []int{1, 1}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+				},
+				[]string{"t3", "t1", "t2"},
+			),
+			Entry("errors high, ratios small",
+				[]testData{
+					{testName: "t1", failed: []int{6, 7}, succeeded: []int{5, 6}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+					{testName: "t2", failed: []int{4, 5}, succeeded: []int{3, 4}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+					{testName: "t3", failed: []int{11, 12}, succeeded: []int{10, 11}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+				},
+				[]string{"t3", "t1", "t2"},
+			),
+			Entry("higher ratio, the higher",
+				[]testData{
+					{testName: "t1", failed: []int{6, 7}, succeeded: []int{3, 4}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+					{testName: "t2", failed: []int{4, 5}, succeeded: []int{2, 3}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+					{testName: "t3", failed: []int{11, 12}, succeeded: []int{2, 1}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+				},
+				[]string{"t3", "t1", "t2"},
+			),
+			Entry("mixed lengths",
+				[]testData{
+					{testName: "t1", failed: []int{8, 10}, succeeded: []int{2, 1}, skipped: []int{2, 2}, severity: HeavilyFlaky},
+					{testName: "t2", failed: []int{3, 4, 5}, succeeded: []int{1, 2, 3}, skipped: []int{2, 2, 2}, severity: HeavilyFlaky},
+					{testName: "t3", failed: []int{22}, succeeded: []int{2}, skipped: []int{2}, severity: HeavilyFlaky},
+				},
+				[]string{"t3", "t1", "t2"},
+			),
+
+			// while the ratio here is higher for t2, we still want to emphazise the cases with higher failures more
+			Entry("real life case 1: 10/9/2 > 9/9/3 > 6/3/12",
+				[]testData{
+					{testName: "t1", failed: []int{9}, succeeded: []int{9}, skipped: []int{3}, severity: HeavilyFlaky},
+					{testName: "t2", failed: []int{6}, succeeded: []int{3}, skipped: []int{12}, severity: HeavilyFlaky},
+					{testName: "t3", failed: []int{10}, succeeded: []int{9}, skipped: []int{2}, severity: HeavilyFlaky},
+				},
+				[]string{"t3", "t1", "t2"},
+			),
+			Entry("real life case 2: 6/3/12 > 5/0/2 > 4/1/2",
+				[]testData{
+					{testName: "t1", failed: []int{5}, succeeded: []int{0}, skipped: []int{2}, severity: HeavilyFlaky},
+					{testName: "t2", failed: []int{4}, succeeded: []int{1}, skipped: []int{2}, severity: HeavilyFlaky},
+					{testName: "t3", failed: []int{6}, succeeded: []int{3}, skipped: []int{12}, severity: HeavilyFlaky},
+				},
+				[]string{"t3", "t1", "t2"},
+			),
+			Entry("real life case 1: 15/1/0 > 13/0/3 > 3/0/13 > ",
+				[]testData{
+					{testName: "t1", failed: []int{13}, succeeded: []int{0}, skipped: []int{3}, severity: HeavilyFlaky},
+					{testName: "t2", failed: []int{3}, succeeded: []int{0}, skipped: []int{13}, severity: HeavilyFlaky},
+					{testName: "t3", failed: []int{15}, succeeded: []int{1}, skipped: []int{0}, severity: HeavilyFlaky},
+				},
+				[]string{"t3", "t1", "t2"},
+			),
+
+			Entry("less number of succeeded, more severe: 5/1/13 > 5/3/3 > 5/5/0",
+				[]testData{
+					{testName: "t1", failed: []int{5}, succeeded: []int{3}, skipped: []int{3}, severity: HeavilyFlaky},
+					{testName: "t2", failed: []int{5}, succeeded: []int{5}, skipped: []int{13}, severity: HeavilyFlaky},
+					{testName: "t3", failed: []int{5}, succeeded: []int{1}, skipped: []int{0}, severity: HeavilyFlaky},
+				},
+				[]string{"t3", "t1", "t2"},
+			),
+		)
 
 	})
 

@@ -1,0 +1,111 @@
+presubmits:
+  kubevirt/cloud-provider-kubevirt:
+  - name: pull-cloud-provider-kubevirt-unit-tests
+    branches:
+      - main
+    annotations:
+      fork-per-release: "true"
+      testgrid-create-test-group: "false"
+    always_run: true
+    optional: false
+    skip_report: false
+    cluster: prow-workloads
+    decorate: true
+    decoration_config:
+      timeout: 10m
+      grace_period: 5m
+    max_concurrency: 11
+    labels:
+      preset-dind-enabled: "true"
+      preset-docker-mirror-proxy: "true"
+      preset-shared-images: "true"
+    spec:
+      nodeSelector:
+        type: bare-metal-external
+      containers:
+        - image: quay.io/kubevirtci/golang:v20220728-1410a63
+          command:
+            - "/usr/local/bin/runner.sh"
+            - "/bin/sh"
+            - "-c"
+            - "make test"
+          env:
+            - name: GIMME_GO_VERSION
+              value: "1.17"
+          # docker-in-docker needs privileged mode
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              memory: "10Gi"
+  - name: pull-cloud-provider-kubevirt-lint
+    branches:
+      - main
+    annotations:
+      fork-per-release: "true"
+      testgrid-create-test-group: "false"
+    always_run: true
+    optional: false
+    skip_report: false
+    cluster: prow-workloads
+    decorate: true
+    decoration_config:
+      timeout: 10m
+      grace_period: 5m
+    max_concurrency: 11
+    labels:
+      preset-dind-enabled: "true"
+      preset-docker-mirror-proxy: "true"
+      preset-shared-images: "true"
+    spec:
+      nodeSelector:
+        type: bare-metal-external
+      containers:
+        - image: quay.io/kubevirtci/golang:v20220728-1410a63
+          command:
+            - "/usr/local/bin/runner.sh"
+            - "/bin/sh"
+            - "-c"
+            - "make lint"
+          env:
+            - name: GIMME_GO_VERSION
+              value: "1.17"
+          # docker-in-docker needs privileged mode
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              memory: "10Gi"
+  - name: pull-kubevirt-cloud-provider-kubevirt-e2e
+    always_run: true
+    optional: false
+    decorate: true
+    cluster: prow-workloads
+    decoration_config:
+      grace_period: 5m0s
+      timeout: 3h0m0s
+    labels:
+      preset-dind-enabled: "true"
+      preset-docker-mirror-proxy: "true"
+    max_concurrency: 11
+    skip_branches:
+    - release-\d+\.\d+
+    spec:
+      containers:
+      - command:
+        - /usr/local/bin/runner.sh
+        - /bin/sh
+        - -c
+        - make functest
+        image: quay.io/kubevirtci/golang:v20220728-1410a63
+        name: ""
+        resources:
+          requests:
+            memory: 16Gi
+        securityContext:
+          privileged: true
+        env:
+          - name: GIMME_GO_VERSION
+            value: "1.17"
+      nodeSelector:
+        type: bare-metal-external

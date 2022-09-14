@@ -4,13 +4,13 @@
 filters:
   .*:
     approvers:
-    - erkanerol
+    - machadovilaca
     - nunnatsa
     - orenc1
     - sradco
     - tiraboschi
     reviewers:
-    - erkanerol
+    - machadovilaca
     - nunnatsa
     - orenc1
     - sradco

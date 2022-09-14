@@ -73,7 +73,7 @@ func main() {
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 	// TODO: Use global option from the prow config.
 	logrus.SetLevel(logrus.DebugLevel)
-	log := logrus.StandardLogger().WithField("robot", "release-querier")
+	log := logrus.StandardLogger().WithField("robot", "kubevirtci-presubmit-creator")
 
 	o := gatherOptions()
 	if err := o.Validate(); err != nil {
@@ -180,7 +180,7 @@ func CreatePresubmitJobForRelease(semver *querier.SemVer) config.Presubmit {
 				"preset-dind-enabled":  "true",
 				"preset-docker-mirror-proxy": "true",
 			},
-			Cluster: "phx-prow",
+			Cluster: "prow-workloads",
 			Spec: &v1.PodSpec{
 				NodeSelector: map[string]string{
 					"type": "bare-metal-external",

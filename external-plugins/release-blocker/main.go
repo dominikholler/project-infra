@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-
 	"k8s.io/test-infra/pkg/flagutil"
 	"k8s.io/test-infra/prow/config"
 	"k8s.io/test-infra/prow/config/secret"
@@ -17,6 +16,7 @@ import (
 	"k8s.io/test-infra/prow/git/v2"
 	"k8s.io/test-infra/prow/interrupts"
 	"k8s.io/test-infra/prow/pluginhelp/externalplugins"
+	"k8s.io/test-infra/prow/plugins/ownersconfig"
 	"k8s.io/test-infra/prow/repoowners"
 )
 
@@ -64,16 +64,15 @@ func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 	log := logrus.StandardLogger().WithField("plugin", pluginName)
 
-	secretAgent := &secret.Agent{}
-	if err := secretAgent.Start([]string{o.github.TokenPath, o.webhookSecretFile}); err != nil {
+	if err := secret.Add(o.github.TokenPath, o.webhookSecretFile); err != nil {
 		logrus.WithError(err).Fatal("Error starting secrets agent.")
 	}
 
-	githubClient, err := o.github.GitHubClient(secretAgent, o.dryRun)
+	githubClient, err := o.github.GitHubClient(o.dryRun)
 	if err != nil {
 		logrus.WithError(err).Fatal("Error getting GitHub client.")
 	}
-	gitClient, err := o.github.GitClient(secretAgent, o.dryRun)
+	gitClient, err := o.github.GitClient(o.dryRun)
 	if err != nil {
 		logrus.WithError(err).Fatal("Error getting Git client.")
 	}
@@ -83,22 +82,22 @@ func main() {
 		}
 	})
 
-	botName, err := githubClient.BotName()
+	botUserData, err := githubClient.BotUser()
 	if err != nil {
 		logrus.WithError(err).Fatal("Error getting bot name.")
 	}
 
 	mdYAMLEnabled := func(org, repo string) bool { return true }
 	skipCollaborators := func(org, repo string) bool { return false }
-	ownersDirBlacklist := func() config.OwnersDirBlacklist {
-		return config.OwnersDirBlacklist{}
+	ownersDirDenylist := func() *config.OwnersDirDenylist {
+		return &config.OwnersDirDenylist{}
 	}
 
-	ownersClient := repoowners.NewClient(git.ClientFactoryFrom(gitClient), githubClient, mdYAMLEnabled, skipCollaborators, ownersDirBlacklist)
+	ownersClient := repoowners.NewClient(git.ClientFactoryFrom(gitClient), githubClient, mdYAMLEnabled, skipCollaborators, ownersDirDenylist, ownersconfig.FakeResolver)
 
 	server := &Server{
-		tokenGenerator: secretAgent.GetTokenGenerator(o.webhookSecretFile),
-		botName:        botName,
+		tokenGenerator: secret.GetTokenGenerator(o.webhookSecretFile),
+		botName:        botUserData.Login,
 
 		ghc:          githubClient,
 		log:          log,

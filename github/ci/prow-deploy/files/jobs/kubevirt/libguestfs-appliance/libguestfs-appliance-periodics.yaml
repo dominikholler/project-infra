@@ -2,8 +2,8 @@ periodics:
 - name: periodic-libguestfs-appliance-push-weekly-build-main
   branches:
     - main
-  # Run once a week at midnight on Sunday morning
-  cron: "0 0 * * 0"
+  # Run once a week at 2AM on Saturday morning
+  cron: "0 2 * * 6"
   annotations:
     testgrid-dashboards: kubevirt-libguestfs-appliance-periodics
     testgrid-alert-email: afrosi@redhat.com, victortoso@redhat.com
@@ -16,6 +16,7 @@ periodics:
   labels:
     preset-dind-enabled: "true"
     preset-docker-mirror: "true"
+    preset-gcs-credentials: "true"
   extra_refs:
    - org: kubevirt
      repo: libguestfs-appliance
@@ -24,10 +25,7 @@ periodics:
   cluster: ibm-prow-jobs
   spec:
     containers:
-    - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
-      env:
-      - name: GOOGLE_APPLICATION_CREDENTIALS
-        value: /etc/gcs/service-account.json
+    - image: quay.io/kubevirtci/bootstrap:v20220728-1410a63
       command:
         - "/usr/local/bin/runner.sh"
         - "/bin/sh"
@@ -42,14 +40,11 @@ periodics:
       # docker-in-docker needs privileged mode
       securityContext:
         privileged: true
+      env:
+      - name: LIBGUESTFS_DEBUG
+        value: "1"
+      - name: LIBGUESTFS_TRACE
+        value: "1"
       resources:
         requests:
           memory: "2Gi"
-      volumeMounts:
-        - name: gcs
-          mountPath: /etc/gcs
-          readOnly: false
-    volumes:
-      - name: gcs
-        secret:
-          secretName: gcs

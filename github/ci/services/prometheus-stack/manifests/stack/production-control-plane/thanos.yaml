@@ -128,7 +128,13 @@ spec:
             port: 9090
             scheme: HTTP
           periodSeconds: 5
-        resources: {}
+        resources:
+          limits:
+            cpu: 100m
+            memory: 3.16Gi
+          requests:
+            cpu: 100m
+            memory: 3.16Gi
         terminationMessagePolicy: FallbackToLogsOnError
       securityContext:
         fsGroup: 65534
@@ -272,10 +278,10 @@ spec:
         resources:
           limits:
             cpu: 0.42
-            memory: 420Mi
+            memory: 3.47Gi
           requests:
-            cpu: 0.123
-            memory: 123Mi
+            cpu: 0.42
+            memory: 3.47Gi
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /var/thanos/store
@@ -382,9 +388,9 @@ spec:
         - --debug.accept-malformed-index
         - --delete-delay=48h
         - --deduplication.replica-label=replica
-        - --retention.resolution-raw=40d
-        - --retention.resolution-5m=40d
-        - --retention.resolution-1h=40d
+        - --retention.resolution-raw=21d
+        - --retention.resolution-5m=21d
+        - --retention.resolution-1h=21d
         env:
         - name: OBJSTORE_CONFIG
           valueFrom:

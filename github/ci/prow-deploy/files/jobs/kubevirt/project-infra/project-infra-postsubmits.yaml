@@ -9,12 +9,11 @@ postsubmits:
       cluster: ibm-prow-jobs
       max_concurrency: 1
       labels:
-        preset-dind-enabled: "true"
-        preset-docker-mirror-proxy: "true"
+        preset-bazel-cache: "true"
         preset-kubevirtci-quay-credential: "true"
       spec:
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20210126-a12b6c0
+          - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
             command:
               - "/usr/local/bin/runner.sh"
               - "/bin/bash"
@@ -22,9 +21,32 @@ postsubmits:
               - |
                 cat "$QUAY_PASSWORD" | docker login --username $(cat "$QUAY_USER") --password-stdin=true quay.io
                 bazelisk run //external-plugins/rehearse/plugin:push
-            # docker-in-docker needs privileged mode
-            securityContext:
-              privileged: true
+            resources:
+              requests:
+                memory: "8Gi"
+              limits:
+                memory: "8Gi"
+    - name: publish-release-blocker-image
+      always_run: false
+      run_if_changed: "external-plugins/release-blocker/.*"
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      cluster: ibm-prow-jobs
+      max_concurrency: 1
+      labels:
+        preset-bazel-cache: "true"
+        preset-kubevirtci-quay-credential: "true"
+      spec:
+        containers:
+          - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
+            command:
+              - "/usr/local/bin/runner.sh"
+              - "/bin/bash"
+              - "-c"
+              - |
+                cat "$QUAY_PASSWORD" | docker login --username $(cat "$QUAY_USER") --password-stdin=true quay.io
+                bazelisk run //external-plugins/release-blocker:push
             resources:
               requests:
                 memory: "8Gi"
@@ -38,15 +60,13 @@ postsubmits:
       decorate: true
       max_concurrency: 1
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-kubevirtci-quay-credential: "true"
-      cluster: phx-prow
+      cluster: ibm-prow-jobs
       spec:
-        nodeSelector:
-          type: vm
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+          - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
             command:
               - "/usr/local/bin/runner.sh"
               - "/bin/bash"
@@ -65,7 +85,7 @@ postsubmits:
                 memory: "1Gi"
     - name: publish-bootstrap-image
       always_run: false
-      run_if_changed: "images/.*"
+      run_if_changed: "images/golang/.*|images/bootstrap/.*"
       annotations:
         testgrid-create-test-group: "false"
       decorate: true
@@ -73,12 +93,10 @@ postsubmits:
       labels:
         preset-dind-enabled: "true"
         preset-kubevirtci-quay-credential: "true"
-      cluster: phx-prow
+      cluster: ibm-prow-jobs
       spec:
-        nodeSelector:
-          type: vm
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20201119-a5880e0
+          - image: quay.io/kubevirtci/bootstrap-legacy:v20220810-a8f2e6c
             command:
               - "/usr/local/bin/runner.sh"
               - "/bin/bash"
@@ -86,8 +104,39 @@ postsubmits:
               - |
                 cat "$QUAY_PASSWORD" | docker login --username $(cat "$QUAY_USER") --password-stdin=true quay.io
                 cd images
-                ./publish_image.sh bootstrap quay.io kubevirtci
-                ./publish_image.sh golang quay.io kubevirtci
+                ./publish_multiarch_image.sh -a bootstrap quay.io kubevirtci
+                ./publish_multiarch_image.sh -a -l golang quay.io kubevirtci
+            # docker-in-docker needs privileged mode
+            securityContext:
+              privileged: true
+            resources:
+              requests:
+                memory: "1Gi"
+              limits:
+                memory: "1Gi"
+    - name: publish-bootstrap-legacy-images
+      always_run: false
+      run_if_changed: "images/golang-legacy/.*|images/bootstrap-legacy/.*"
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      max_concurrency: 1
+      labels:
+        preset-podman-in-container-enabled: "true"
+        preset-kubevirtci-quay-credential: "true"
+      cluster: ibm-prow-jobs
+      spec:
+        containers:
+          - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
+            command:
+              - "/usr/local/bin/runner.sh"
+              - "/bin/bash"
+              - "-c"
+              - |
+                cat "$QUAY_PASSWORD" | docker login --username $(cat "$QUAY_USER") --password-stdin=true quay.io
+                cd images
+                ./publish_image.sh bootstrap-legacy quay.io kubevirtci
+                ./publish_image.sh golang-legacy quay.io kubevirtci
             # docker-in-docker needs privileged mode
             securityContext:
               privileged: true
@@ -104,15 +153,13 @@ postsubmits:
       decorate: true
       max_concurrency: 1
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-kubevirtci-quay-credential: "true"
-      cluster: phx-prow
+      cluster: ibm-prow-jobs
       spec:
-        nodeSelector:
-          type: vm
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20201119-a5880e0
+          - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
             command:
               - "/usr/local/bin/runner.sh"
               - "/bin/bash"
@@ -129,9 +176,45 @@ postsubmits:
                 memory: "1Gi"
               limits:
                 memory: "1Gi"
-    - name: publish-kubevirt-userguide-image
+    - name: publish-kubevirt-kubevirt.github.io-image
       always_run: false
-      run_if_changed: "images/kubevirt-userguide/.*"
+      run_if_changed: "images/kubevirt-kubevirt.github.io/.*"
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      max_concurrency: 1
+      labels:
+        preset-podman-in-container-enabled: "true"
+        preset-docker-mirror-proxy: "true"
+        preset-kubevirtci-quay-credential: "true"
+      cluster: ibm-prow-jobs
+      extra_refs:
+      - org: kubevirt
+        repo: kubevirt.github.io
+        base_ref: main
+      spec:
+        containers:
+          - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
+            command:
+              - "/usr/local/bin/runner.sh"
+              - "/bin/bash"
+              - "-c"
+              - |
+                cat "$QUAY_PASSWORD" | docker login --username $(cat "$QUAY_USER") --password-stdin=true quay.io
+                cd images
+                cp -r ../../kubevirt.github.io/_config kubevirt-kubevirt.github.io
+                ./publish_image.sh kubevirt-kubevirt.github.io quay.io kubevirtci
+            # docker-in-docker needs privileged mode
+            securityContext:
+              privileged: true
+            resources:
+              requests:
+                memory: "1Gi"
+              limits:
+                memory: "1Gi"
+    - name: publish-kubevirt-user-guide-image
+      always_run: false
+      run_if_changed: "images/kubevirt-user-guide/.*"
       annotations:
         testgrid-create-test-group: "false"
       decorate: true
@@ -140,12 +223,10 @@ postsubmits:
         preset-dind-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-kubevirtci-quay-credential: "true"
-      cluster: phx-prow
+      cluster: ibm-prow-jobs
       spec:
-        nodeSelector:
-          type: vm
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20201119-a5880e0
+          - image: quay.io/kubevirtci/bootstrap:v20220728-1410a63
             command:
               - "/usr/local/bin/runner.sh"
               - "/bin/bash"
@@ -153,7 +234,7 @@ postsubmits:
               - |
                 cat "$QUAY_PASSWORD" | docker login --username $(cat "$QUAY_USER") --password-stdin=true quay.io
                 cd images
-                ./publish_image.sh kubevirt-userguide quay.io kubevirtci
+                ./publish_image.sh kubevirt-user-guide quay.io kubevirtci
             # docker-in-docker needs privileged mode
             securityContext:
               privileged: true
@@ -170,14 +251,12 @@ postsubmits:
       decorate: true
       max_concurrency: 1
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-kubevirtci-quay-credential: "true"
-      cluster: phx-prow
+      cluster: ibm-prow-jobs
       spec:
-        nodeSelector:
-          type: vm
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20201119-a5880e0
+          - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
             command:
               - "/usr/local/bin/runner.sh"
               - "/bin/bash"
@@ -202,12 +281,12 @@ postsubmits:
       decorate: true
       max_concurrency: 1
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-kubevirtci-quay-credential: "true"
       cluster: prow-workloads
       spec:
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20201119-a5880e0
+          - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
             command:
               - "/usr/local/bin/runner.sh"
               - "/bin/bash"
@@ -224,8 +303,101 @@ postsubmits:
                 memory: "4Gi"
               limits:
                 memory: "4Gi"
+    - name: publish-pr-creator-image
+      always_run: false
+      run_if_changed: "images/pr-creator/.*"
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      max_concurrency: 1
+      labels:
+        preset-podman-in-container-enabled: "true"
+        preset-kubevirtci-quay-credential: "true"
+      cluster: prow-workloads
+      spec:
+        containers:
+          - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
+            command:
+              - "/usr/local/bin/runner.sh"
+              - "/bin/bash"
+              - "-c"
+              - |
+                cat "$QUAY_PASSWORD" | docker login --username $(cat "$QUAY_USER") --password-stdin=true quay.io
+                cd images
+                ./publish_image.sh pr-creator quay.io kubevirtci
+            # docker-in-docker needs privileged mode
+            securityContext:
+              privileged: true
+            resources:
+              requests:
+                memory: "16Gi"
+                cpu: "500m"
+              limits:
+                memory: "16Gi"
+                cpu: "500m"
+    - name: publish-vm-image-builder-image
+      always_run: false
+      run_if_changed: "images/vm-image-builder/.*"
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      max_concurrency: 1
+      labels:
+        preset-podman-in-container-enabled: "true"
+        preset-kubevirtci-quay-credential: "true"
+      cluster: ibm-prow-jobs
+      spec:
+        containers:
+          - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
+            command:
+              - "/usr/local/bin/runner.sh"
+              - "/bin/bash"
+              - "-c"
+              - |
+                cat "$QUAY_PASSWORD" | docker login --username $(cat "$QUAY_USER") --password-stdin=true quay.io
+                cd images
+                ./publish_image.sh vm-image-builder quay.io kubevirtci
+            # docker-in-docker needs privileged mode
+            securityContext:
+              privileged: true
+            resources:
+              requests:
+                memory: "1Gi"
+              limits:
+                memory: "1Gi"
+    - name: publish-kubot-image
+      always_run: false
+      run_if_changed: "images/kubot/.*"
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      max_concurrency: 1
+      labels:
+        preset-podman-in-container-enabled: "true"
+        preset-kubevirtci-quay-credential: "true"
+      cluster: ibm-prow-jobs
+      spec:
+        containers:
+          - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
+            command:
+              - "/usr/local/bin/runner.sh"
+              - "/bin/bash"
+              - "-c"
+              - |
+                cat "$QUAY_PASSWORD" | docker login --username $(cat "$QUAY_USER") --password-stdin=true quay.io
+                cd images
+                ./publish_image.sh kubot quay.io kubevirtci
+            # docker-in-docker needs privileged mode
+            securityContext:
+              privileged: true
+            resources:
+              requests:
+                memory: "4Gi"
+              limits:
+                memory: "4Gi"
     - name: post-project-infra-prow-control-plane-deployment
       always_run: false
+      run_if_changed: "github/ci/prow-deploy/.*"
       annotations:
         testgrid-create-test-group: "false"
       decorate: true
@@ -233,18 +405,16 @@ postsubmits:
       - ^main$
       labels:
         preset-docker-mirror-proxy: "true"
+        preset-gcs-credentials: "true"
+        preset-github-credentials: "true"
       skip_report: false
       cluster: ibm-prow-jobs
       spec:
         securityContext:
           runAsUser: 0
         containers:
-        - image: quay.io/kubevirtci/prow-deploy:v20210129-a239273
+        - image: quay.io/kubevirtci/prow-deploy:v20210924-4c47964
           env:
-          - name: GOOGLE_APPLICATION_CREDENTIALS
-            value: /etc/gcs/service-account.json
-          - name: GIT_ASKPASS
-            value: "/home/prow/go/src/github.com/kubevirt/project-infra/hack/git-askpass.sh"
           - name: DEPLOY_ENVIRONMENT
             value: ibmcloud-production
           command:
@@ -258,26 +428,16 @@ postsubmits:
             limits:
               memory: "8Gi"
           volumeMounts:
-          - name: token
-            mountPath: /etc/github
-          - name: gcs
-            mountPath: /etc/gcs
-            readOnly: true
           - name: pgp-bot-key
             mountPath: /etc/pgp
             readOnly: true
         volumes:
-        - name: token
-          secret:
-            secretName: oauth-token
         - name: pgp-bot-key
           secret:
             secretName: pgp-bot-key
-        - name: gcs
-          secret:
-            secretName: gcs
     - name: post-project-infra-prow-workloads-cluster-deployment
       always_run: false
+      run_if_changed: "github/ci/prow-deploy/kustom/overlays/workloads-production/.*|github/ci/prow-deploy/kustom/componenets/.*"
       annotations:
         testgrid-create-test-group: "false"
       decorate: true
@@ -285,18 +445,16 @@ postsubmits:
       - ^main$
       labels:
         preset-docker-mirror-proxy: "true"
+        preset-gcs-credentials: "true"
+        preset-github-credentials: "true"
       skip_report: false
       cluster: ibm-prow-jobs
       spec:
         securityContext:
           runAsUser: 0
         containers:
-        - image: quay.io/kubevirtci/prow-deploy:v20210129-a239273
+        - image: quay.io/kubevirtci/prow-deploy:v20210924-4c47964
           env:
-          - name: GOOGLE_APPLICATION_CREDENTIALS
-            value: /etc/gcs/service-account.json
-          - name: GIT_ASKPASS
-            value: "/home/prow/go/src/github.com/kubevirt/project-infra/hack/git-askpass.sh"
           - name: DEPLOY_ENVIRONMENT
             value: workloads-production
           command:
@@ -310,24 +468,13 @@ postsubmits:
             limits:
               memory: "8Gi"
           volumeMounts:
-          - name: token
-            mountPath: /etc/github
-          - name: gcs
-            mountPath: /etc/gcs
-            readOnly: true
           - name: pgp-bot-key
             mountPath: /etc/pgp
             readOnly: true
         volumes:
-        - name: token
-          secret:
-            secretName: oauth-token
         - name: pgp-bot-key
           secret:
             secretName: pgp-bot-key
-        - name: gcs
-          secret:
-            secretName: gcs
     - name: post-project-infra-prow-workloads-bootstrap-nodes
       always_run: false
       annotations:
@@ -338,49 +485,36 @@ postsubmits:
       - ^prow-workloads-bootstrap-nodes-v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
       labels:
         preset-docker-mirror-proxy: "true"
+        preset-gcs-credentials: "true"
+        preset-github-credentials: "true"
       skip_report: false
       cluster: ibm-prow-jobs
       spec:
         securityContext:
           runAsUser: 0
         containers:
-        - image: quay.io/kubevirtci/prow-deploy:v20210129-a239273
+        - image: quay.io/kubevirtci/prow-deploy:v20210924-4c47964
           env:
-          - name: GOOGLE_APPLICATION_CREDENTIALS
-            value: /etc/gcs/service-account.json
-          - name: GIT_ASKPASS
-            value: "/home/prow/go/src/github.com/kubevirt/project-infra/hack/git-askpass.sh"
           - name: DEPLOY_ENVIRONMENT
             value: workloads-production
           command:
             - "/usr/local/bin/runner.sh"
             - "/bin/bash"
             - "-c"
-            - "github/ci/prow-deploy/hack/bootstrap.sh"
+            - "github/ci/prow-workloads/hack/bootstrap.sh"
           resources:
             requests:
               memory: "8Gi"
             limits:
               memory: "8Gi"
           volumeMounts:
-          - name: token
-            mountPath: /etc/github
-          - name: gcs
-            mountPath: /etc/gcs
-            readOnly: true
           - name: pgp-bot-key
             mountPath: /etc/pgp
             readOnly: true
         volumes:
-        - name: token
-          secret:
-            secretName: oauth-token
         - name: pgp-bot-key
           secret:
             secretName: pgp-bot-key
-        - name: gcs
-          secret:
-            secretName: gcs
     - name: post-project-infra-prow-workloads-services-deployment
       always_run: false
       annotations:
@@ -391,6 +525,8 @@ postsubmits:
       - ^prow-workloads-services-v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
       labels:
         preset-docker-mirror-proxy: "true"
+        preset-gcs-credentials: "true"
+        preset-github-credentials: "true"
       skip_report: false
       cluster: ibm-prow-jobs
       spec:
@@ -398,13 +534,7 @@ postsubmits:
           runAsUser: 0
         containers:
         - image: quay.io/kubespray/kubespray:v2.15.0
-          env:
-          - name: GOOGLE_APPLICATION_CREDENTIALS
-            value: /etc/gcs/service-account.json
-          - name: GIT_ASKPASS
-            value: "./hack/git-askpass.sh"
           command:
-            - "/usr/local/bin/runner.sh"
             - "/bin/bash"
             - "-c"
             - "./github/ci/prow-workloads/hack/deploy.sh"
@@ -414,24 +544,157 @@ postsubmits:
             limits:
               memory: "8Gi"
           volumeMounts:
-          - name: token
-            mountPath: /etc/github
-          - name: gcs
-            mountPath: /etc/gcs
-            readOnly: true
           - name: pgp-bot-key
             mountPath: /etc/pgp
             readOnly: true
         volumes:
-        - name: token
-          secret:
-            secretName: oauth-token
         - name: pgp-bot-key
           secret:
             secretName: pgp-bot-key
-        - name: gcs
+    - name: post-project-infra-prow-performance-workloads-bootstrap-nodes
+      always_run: false
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      branches:
+      # regex for semver from https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+      - ^prow-performance-workloads-bootstrap-nodes-v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+      labels:
+        preset-docker-mirror-proxy: "true"
+        preset-gcs-credentials: "true"
+        preset-github-credentials: "true"
+      skip_report: false
+      cluster: ibm-prow-jobs
+      spec:
+        securityContext:
+          runAsUser: 0
+        containers:
+        - image: quay.io/kubespray/kubespray:v2.17.1
+          command:
+            - "/bin/bash"
+            - "-c"
+            - "./github/ci/prow-performance-workloads/hack/bootstrap.sh"
+          resources:
+            requests:
+              memory: "8Gi"
+            limits:
+              memory: "8Gi"
+          volumeMounts:
+          - name: pgp-bot-key
+            mountPath: /etc/pgp
+            readOnly: true
+        volumes:
+        - name: pgp-bot-key
           secret:
-            secretName: gcs
+            secretName: pgp-bot-key
+    - name: post-project-infra-prow-performance-workload-cluster-deployment
+      always_run: false
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      branches:
+      # regex for semver from https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+      - ^prow-performance-workload-cluster-deployment-v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+      labels:
+        preset-docker-mirror-proxy: "true"
+        preset-gcs-credentials: "true"
+        preset-github-credentials: "true"
+      skip_report: false
+      cluster: ibm-prow-jobs
+      spec:
+        securityContext:
+          runAsUser: 0
+        containers:
+        - image: quay.io/kubespray/kubespray:v2.17.1
+          command:
+            - "/bin/bash"
+            - "-c"
+            - "./github/ci/prow-performance-workloads/hack/deploy.sh"
+          resources:
+            requests:
+              memory: "8Gi"
+            limits:
+              memory: "8Gi"
+          volumeMounts:
+          - name: pgp-bot-key
+            mountPath: /etc/pgp
+            readOnly: true
+        volumes:
+        - name: pgp-bot-key
+          secret:
+            secretName: pgp-bot-key
+    - name: post-project-infra-prow-arm-workloads-bootstrap-nodes
+      always_run: false
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      branches:
+      # regex for semver from https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+      - ^prow-arm-workloads-bootstrap-nodes-v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+      labels:
+        preset-docker-mirror-proxy: "true"
+        preset-gcs-credentials: "true"
+        preset-github-credentials: "true"
+      skip_report: false
+      cluster: ibm-prow-jobs
+      spec:
+        securityContext:
+          runAsUser: 0
+        containers:
+        - image: quay.io/kubespray/kubespray:v2.15.0
+          command:
+            - "/bin/bash"
+            - "-c"
+            - "./github/ci/prow-arm-workloads/hack/bootstrap.sh"
+          resources:
+            requests:
+              memory: "8Gi"
+            limits:
+              memory: "8Gi"
+          volumeMounts:
+          - name: pgp-bot-key
+            mountPath: /etc/pgp
+            readOnly: true
+        volumes:
+        - name: pgp-bot-key
+          secret:
+            secretName: pgp-bot-key
+    - name: post-project-infra-prow-arm-workloads-cluster-deployment
+      always_run: false
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      branches:
+      # regex for semver from https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+      - ^prow-arm-workloads-cluster-deployment-v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
+      labels:
+        preset-docker-mirror-proxy: "true"
+        preset-gcs-credentials: "true"
+        preset-github-credentials: "true"
+      skip_report: false
+      cluster: ibm-prow-jobs
+      spec:
+        securityContext:
+          runAsUser: 0
+        containers:
+        - image: quay.io/kubespray/kubespray:v2.15.0
+          command:
+            - "/bin/bash"
+            - "-c"
+            - "./github/ci/prow-arm-workloads/hack/deploy.sh"
+          resources:
+            requests:
+              memory: "8Gi"
+            limits:
+              memory: "8Gi"
+          volumeMounts:
+          - name: pgp-bot-key
+            mountPath: /etc/pgp
+            readOnly: true
+        volumes:
+        - name: pgp-bot-key
+          secret:
+            secretName: pgp-bot-key
     - name: post-project-infra-cert-manager-deployment
       always_run: false
       annotations:
@@ -442,15 +705,13 @@ postsubmits:
       - ^main$
       labels:
         preset-docker-mirror-proxy: "true"
+        preset-github-credentials: "true"
       cluster: ibm-prow-jobs
       spec:
         securityContext:
           runAsUser: 0
         containers:
-        - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
-          env:
-          - name: GIT_ASKPASS
-            value: "./hack/git-askpass.sh"
+        - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
           command:
             - "/usr/local/bin/runner.sh"
             - "/bin/bash"
@@ -472,15 +733,10 @@ postsubmits:
             limits:
               memory: "8Gi"
           volumeMounts:
-          - name: token
-            mountPath: /etc/github
           - name: pgp-bot-key
             mountPath: /etc/pgp
             readOnly: true
         volumes:
-        - name: token
-          secret:
-            secretName: oauth-token
         - name: pgp-bot-key
           secret:
             secretName: pgp-bot-key
@@ -494,15 +750,13 @@ postsubmits:
       - ^main$
       labels:
         preset-docker-mirror-proxy: "true"
+        preset-github-credentials: "true"
       cluster: ibm-prow-jobs
       spec:
         securityContext:
           runAsUser: 0
         containers:
-        - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
-          env:
-          - name: GIT_ASKPASS
-            value: "./hack/git-askpass.sh"
+        - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
           command:
             - "/usr/local/bin/runner.sh"
             - "/bin/bash"
@@ -524,15 +778,55 @@ postsubmits:
             limits:
               memory: "8Gi"
           volumeMounts:
-          - name: token
-            mountPath: /etc/github
           - name: pgp-bot-key
             mountPath: /etc/pgp
             readOnly: true
         volumes:
-        - name: token
+        - name: pgp-bot-key
           secret:
-            secretName: oauth-token
+            secretName: pgp-bot-key
+    - name: post-project-infra-loki-deployment
+      always_run: false
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      run_if_changed: "github/ci/services/loki.*"
+      branches:
+      - ^main$
+      labels:
+        preset-docker-mirror-proxy: "true"
+        preset-github-credentials: "true"
+      cluster: ibm-prow-jobs
+      spec:
+        securityContext:
+          runAsUser: 0
+        containers:
+        - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
+          command:
+            - "/usr/local/bin/runner.sh"
+            - "/bin/bash"
+            - "-c"
+            - |
+              # install yq
+              curl -Lo ./yq https://github.com/mikefarah/yq/releases/download/3.4.1/yq_linux_amd64
+              chmod +x ./yq && mv ./yq /usr/local/bin/yq
+
+              source ./hack/manage-secrets.sh
+              decrypt_secrets
+              extract_secret 'kubeconfig' ~/.kube/config
+              extract_secret 'gcsServiceAccount' ./github/ci/services/loki/secrets/production-control-plane/gcs/service-account.json
+
+              ./github/ci/services/loki/hack/deploy.sh production-control-plane
+          resources:
+            requests:
+              memory: "8Gi"
+            limits:
+              memory: "8Gi"
+          volumeMounts:
+          - name: pgp-bot-key
+            mountPath: /etc/pgp
+            readOnly: true
+        volumes:
         - name: pgp-bot-key
           secret:
             secretName: pgp-bot-key
@@ -546,15 +840,13 @@ postsubmits:
       - ^main$
       labels:
         preset-docker-mirror-proxy: "true"
+        preset-github-credentials: "true"
       cluster: ibm-prow-jobs
       spec:
         securityContext:
           runAsUser: 0
         containers:
-        - image: quay.io/kubevirtci/bootstrap:v20210112-b29dfd7
-          env:
-          - name: GIT_ASKPASS
-            value: "./hack/git-askpass.sh"
+        - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
           command:
             - "/usr/local/bin/runner.sh"
             - "/bin/bash"
@@ -575,15 +867,10 @@ postsubmits:
             limits:
               memory: "8Gi"
           volumeMounts:
-          - name: token
-            mountPath: /etc/github
           - name: pgp-bot-key
             mountPath: /etc/pgp
             readOnly: true
         volumes:
-        - name: token
-          secret:
-            secretName: oauth-token
         - name: pgp-bot-key
           secret:
             secretName: pgp-bot-key
@@ -597,15 +884,13 @@ postsubmits:
       - ^main$
       labels:
         preset-docker-mirror-proxy: "true"
+        preset-github-credentials: "true"
       cluster: ibm-prow-jobs
       spec:
         securityContext:
           runAsUser: 0
         containers:
-        - image: quay.io/kubevirtci/bootstrap:v20210112-b29dfd7
-          env:
-          - name: GIT_ASKPASS
-            value: "./hack/git-askpass.sh"
+        - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
           command:
             - "/usr/local/bin/runner.sh"
             - "/bin/bash"
@@ -624,24 +909,26 @@ postsubmits:
               extract_secret 'grafanaLDAPTOML' ./github/ci/services/prometheus-stack/secrets/production-control-plane/grafana/ldap-toml
               extract_secret 'thanosObjstoreConfig' ./github/ci/services/prometheus-stack/secrets/production-control-plane/thanos-objstore-config/thanos.yaml
               extract_secret 'thanosObjstoreConfig' ./github/ci/services/prometheus-stack/secrets/production-e2e-workloads/thanos-objstore-config/thanos.yaml
+              extract_secret 'alertmanager.slack.apiURL' ./github/ci/services/prometheus-stack/secrets/production-control-plane/slack-config/apiURL
+              extract_secret 'alertmanager.slack.apiURL' ./github/ci/services/prometheus-stack/secrets/production-e2e-workloads/slack-config/apiURL
 
               ./github/ci/services/prometheus-stack/hack/deploy.sh production-control-plane
               ./github/ci/services/prometheus-stack/hack/deploy.sh production-e2e-workloads
+
+              extract_secret 'kubeconfigPerf' ~/.kube/config
+              extract_secret 'grafanaUserPerf' ./github/ci/services/prometheus-stack/secrets/production-performance-workloads/grafana/admin-user
+              extract_secret 'grafanaPasswordPerf' ./github/ci/services/prometheus-stack/secrets/production-performance-workloads/grafana/admin-password
+              ./github/ci/services/prometheus-stack/hack/deploy.sh production-performance-workloads
           resources:
             requests:
               memory: "8Gi"
             limits:
               memory: "8Gi"
           volumeMounts:
-          - name: token
-            mountPath: /etc/github
           - name: pgp-bot-key
             mountPath: /etc/pgp
             readOnly: true
         volumes:
-        - name: token
-          secret:
-            secretName: oauth-token
         - name: pgp-bot-key
           secret:
             secretName: pgp-bot-key
@@ -655,15 +942,13 @@ postsubmits:
       - ^main$
       labels:
         preset-docker-mirror-proxy: "true"
+        preset-github-credentials: "true"
       cluster: ibm-prow-jobs
       spec:
         securityContext:
           runAsUser: 0
         containers:
-        - image: quay.io/kubevirtci/bootstrap:v20210112-b29dfd7
-          env:
-          - name: GIT_ASKPASS
-            value: "./hack/git-askpass.sh"
+        - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
           command:
             - "/usr/local/bin/runner.sh"
             - "/bin/bash"
@@ -685,15 +970,58 @@ postsubmits:
             limits:
               memory: "8Gi"
           volumeMounts:
-          - name: token
-            mountPath: /etc/github
           - name: pgp-bot-key
             mountPath: /etc/pgp
             readOnly: true
         volumes:
-        - name: token
+        - name: pgp-bot-key
           secret:
-            secretName: oauth-token
+            secretName: pgp-bot-key
+    - name: post-project-infra-kubot-deployment
+      always_run: false
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      run_if_changed: "github/ci/services/kubot.*"
+      branches:
+      - ^main$
+      labels:
+        preset-bazel-cache: "true"
+        preset-docker-mirror-proxy: "true"
+        preset-github-credentials: "true"
+      cluster: ibm-prow-jobs
+      spec:
+        securityContext:
+          runAsUser: 0
+        containers:
+        - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
+          command:
+            - "/usr/local/bin/runner.sh"
+            - "/bin/bash"
+            - "-c"
+            - |
+              # install yq
+              curl -Lo ./yq https://github.com/mikefarah/yq/releases/download/3.4.1/yq_linux_amd64
+              chmod +x ./yq && mv ./yq /usr/local/bin/yq
+
+              source ./hack/manage-secrets.sh
+              decrypt_secrets
+
+              extract_secret 'kubeconfig' ~/.kube/config
+              extract_secret 'kubeconfig' ./github/ci/services/kubot/secrets/production/kubeconfig/config
+              extract_secret 'kubot.slackToken' ./github/ci/services/kubot/secrets/production/slack-token/token
+
+              ./github/ci/services/kubot/hack/deploy.sh production
+          resources:
+            requests:
+              memory: "8Gi"
+            limits:
+              memory: "8Gi"
+          volumeMounts:
+          - name: pgp-bot-key
+            mountPath: /etc/pgp
+            readOnly: true
+        volumes:
         - name: pgp-bot-key
           secret:
             secretName: pgp-bot-key
@@ -703,14 +1031,13 @@ postsubmits:
       - main
       annotations:
         testgrid-create-test-group: "false"
+      labels:
+        preset-gcs-credentials: "true"
       decorate: true
       cluster: ibm-prow-jobs
       spec:
         containers:
         - image: gcr.io/k8s-prow/configurator:v20210526-1d9416cb76
-          env:
-          - name: GOOGLE_APPLICATION_CREDENTIALS
-            value: /etc/gcs/service-account.json
           command:
           - /app/testgrid/cmd/configurator/app.binary
           args:
@@ -724,10 +1051,55 @@ postsubmits:
           resources:
             requests:
               memory: "1Gi"
-          volumeMounts:
-          - name: gcs
-            mountPath: /etc/gcs
-        volumes:
-        - name: gcs
-          secret:
-            secretName: gcs
+    - name: publish-ci-usage-exporter-image
+      always_run: false
+      run_if_changed: "robots/.*/ci-usage-exporter/.*"
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      cluster: ibm-prow-jobs
+      max_concurrency: 1
+      labels:
+        preset-kubevirtci-quay-credential: "true"
+        preset-bazel-cache: "true"
+      spec:
+        containers:
+          - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
+            command:
+              - "/usr/local/bin/runner.sh"
+              - "/bin/bash"
+              - "-c"
+              - |
+                cat "$QUAY_PASSWORD" | docker login --username $(cat "$QUAY_USER") --password-stdin=true quay.io
+                bazelisk run //robots/cmd/ci-usage-exporter:push
+            resources:
+              requests:
+                memory: "8Gi"
+              limits:
+                memory: "8Gi"
+    - name: post-project-infra-mirror-images-from-docker-hub
+      always_run: false
+      run_if_changed: "hack/mirror-images.sh|hack/images_to_mirror.csv"
+      annotations:
+        testgrid-create-test-group: "false"
+      decorate: true
+      cluster: ibm-prow-jobs
+      labels:
+        preset-kubevirtci-quay-credential: "true"
+        preset-docker-mirror-proxy: "true"
+      spec:
+        containers:
+        - image: quay.io/kubevirtci/bootstrap:v20220816-91d8af2
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            set -e
+
+            cat "$QUAY_PASSWORD" | docker login --username $(cat "$QUAY_USER") --password-stdin=true quay.io
+            hack/mirror-images.sh
+          resources:
+            requests:
+              memory: "200Mi"
+            limits:
+              memory: "200Mi"

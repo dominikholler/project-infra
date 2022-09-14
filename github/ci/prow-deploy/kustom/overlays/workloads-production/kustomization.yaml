@@ -5,6 +5,10 @@ kind: Kustomization
 resources:
   - resources/bootstrap.yaml
   - resources/ingress-controller.yaml
+  - resources/multus-cni.yaml
+  - resources/metrics-server.yaml
+  - resources/priority-classes.yaml
+  - resources/place-holder.yaml
   - ../../components/docker-mirror-proxy/base
   - ../../components/greenhouse/base
 
@@ -20,6 +24,11 @@ secretGenerator:
     namespace: kubevirt-prow-jobs
     files:
       - oauth=secrets/oauth-token
+    type: Opaque
+  - name: unprivileged-oauth-token
+    namespace: kubevirt-prow-jobs
+    files:
+      - oauth=secrets/unprivileged-oauth-token
     type: Opaque
   - name: gcs
     namespace: kubevirt-prow-jobs
@@ -38,6 +47,7 @@ secretGenerator:
     namespace: kubevirt-prow-jobs
     # username=quayUser
     # password=quayPass
+    # token=quayOAuthToken
     envs:
     - secrets/kubevirtci-quay-credential
     type: Opaque
@@ -63,4 +73,16 @@ secretGenerator:
     namespace: kubevirt-prow-jobs
     files:
       - productKey=secrets/win-sysprep-001
+    type: Opaque
+  - name: kubevirtci-fossa-token
+    namespace: kubevirt-prow-jobs
+    files:
+      # fossaToken
+      - token=secrets/kubevirtci-fossa-token
+    type: Opaque
+  - name: prow-kubevirtbot-github-ssh-secret
+    namespace: kubevirt-prow-jobs
+    files:
+    # prowKubevirtbotSSHPrivateKey
+    - token=secrets/prow-kubevirtbot-github-ssh-secret
     type: Opaque

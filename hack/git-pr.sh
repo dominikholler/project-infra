@@ -23,9 +23,10 @@ set -o pipefail
 set -x
 
 usage() {
-    echo "Usage: $(basename "$0") -c \"<command>\" [-s \"<summary>\"] [-l <github-login>] [-t </path/to/github/token>] [-T <target-branch>] [-p </path/to/github/repo>] [-n \"<git-name>\"] [-e <git-email>]  [-b <pr-branch>] [-o <org>] [-r <repo>] [-L label1,..,labelN] [-m </path/where/command/should/be/run>]">&2
+    echo "Usage: $(basename "$0") -c \"<command>\" [-s \"<summary>\"] [-l <github-login>] [-t </path/to/github/token>] [-T <target-branch>] [-p </path/to/github/repo>] [-n \"<git-name>\"] [-e <git-email>]  [-b <pr-branch>] [-o <org>] [-r <repo>] [-L label1,..,labelN] [-m </path/where/command/should/be/run>] [-d <command-to-create-commit-message>] [-h <head-branch>]">&2
 }
 
+dry_run=
 command=
 summary=
 user=kubevirt-bot
@@ -39,9 +40,17 @@ repo=kubevirt
 command_path=$(pwd)
 targetbranch=master
 labels=
+description_command=
+title=
+body=
+head_branch=
+release_note_none=
 
-while getopts ":c:s:l:t:T:p:n:e:b:o:r:m:L:" opt; do
+while getopts ":Dc:s:l:t:T:p:n:e:b:o:r:m:L:d:h:R:B:" opt; do
     case "${opt}" in
+        D )
+            dry_run=true
+            ;;
         c )
             command="${OPTARG}"
             ;;
@@ -81,6 +90,18 @@ while getopts ":c:s:l:t:T:p:n:e:b:o:r:m:L:" opt; do
         L )
             labels="${OPTARG}"
             ;;
+        d )
+            description_command="${OPTARG}"
+            ;;
+        h )
+            head_branch="${OPTARG}"
+            ;;
+        R )
+            release_note_none=true
+            ;;
+        B )
+            body="${OPTARG}"
+            ;;
         \? )
             usage
             exit 1
@@ -110,24 +131,52 @@ if ! git config user.name &>/dev/null && git config user.email &>/dev/null; then
     exit 1
 fi
 
+if [ -n "${description_command}" ]; then
+    summary=$(eval "${description_command}")
+    title=$(echo "$summary" | head -1)
+    generated_body=$(echo "$summary" | sed '1,2d')
+else
+    title="$summary"
+    generated_body="Automatic run of \"${command}\". Please review"
+fi
+
+if [ -z "${body}" ]; then
+    body="${generated_body}"
+fi
+
+if [ -z "${head_branch}" ]; then
+    head_branch="${branch}"
+fi
+
 git add -A
 if git diff --name-only --exit-code HEAD; then
     echo "Nothing changed" >&2
     exit 0
 fi
 
-git commit -s -m "${summary}"
-git push -f "https://${user}@github.com/${user}/${repo}.git" HEAD:"${branch}"
+if [ -n "$release_note_none" ]; then
+    summary+='\n\n```release-note\nNONE\n```'
+fi
 
-echo "Creating PR to merge ${user}:${branch} into master..." >&2
-# TODO: fix the truncation of the summary in pr-creator
-# this is currently required as the search for existing PRs fails if the summary is too long due to
-# GitHub search being limited to 250 characters
-pr-creator \
-    --github-token-path="${token}" \
-    --org="${org}" --repo="${repo}" --branch="${targetbranch}" \
-    --title="${summary}" --match-title="$(echo $summary | cut -c -150)" \
-    --body="Automatic run of \"${command}\". Please review" \
-    --source="${user}":"${branch}" \
-    --labels="${labels}" \
-    --confirm
+if [ -z "$dry_run" ]; then
+    git commit -s -m "${summary}"
+    git push -f "https://${user}@github.com/${user}/${repo}.git" HEAD:"${branch}"
+else
+    echo "dry_run: git commit -s -m \"${summary}\""
+    echo "dry_run: git push -f \"https://${user}@github.com/${user}/${repo}.git\" HEAD:\"${branch}\""
+fi
+
+if [ -z "$dry_run" ]; then
+    echo "Creating PR to merge ${user}:${branch} into master..." >&2
+    pr-creator \
+        --github-token-path="${token}" \
+        --org="${org}" --repo="${repo}" --branch="${targetbranch}" \
+        --title="${title}" \
+        --head-branch="${head_branch}" \
+        --body="${body}" \
+        --source="${user}":"${branch}" \
+        --labels="${labels}" \
+        --confirm
+else
+    pr-creator --help
+fi

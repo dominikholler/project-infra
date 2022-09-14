@@ -2,20 +2,20 @@ filters:
   ".*":
     reviewers:
       - aglitke
+      - brianmcarey
       - davidvossel
       - dhiller
       - enp0s3
-      - fgimenez
       - phoracek
       - rmohr
       - tiraboschi
       - vladikr
     approvers:
       - aglitke
+      - brianmcarey
       - davidvossel
       - dhiller
       - enp0s3
-      - fgimenez
       - phoracek
       - rmohr
       - tiraboschi
@@ -23,3 +23,4 @@ filters:
     emeritus_approvers:
       - cynepco3hahue
       - danielBelenky
+      - fgimenez

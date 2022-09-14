@@ -2,15 +2,12 @@ periodics:
   - name: periodic-publish-kubemacpool-flakefinder-weekly-report
     cron: "50 0 * * *"
     decorate: true
-    cluster: phx-prow
+    cluster: ibm-prow-jobs
     annotations:
       testgrid-create-test-group: "false"
     spec:
-      nodeSelector:
-        type: vm
-        zone: ci
       containers:
-        - image: quay.io/kubevirtci/flakefinder@sha256:9871c510cde2945ae65406c8e6b153a3e573ced8b95f3eeb8ff47a6642cffdb4
+        - image: quay.io/kubevirtci/flakefinder:v20220505-8aeca1a5
           env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /etc/gcs/service-account.json
@@ -39,16 +36,13 @@ periodics:
             secretName: gcs
   - name: periodic-publish-kubemacpool-flakefinder-daily-report
     cron: "30 0 * * *"
-    cluster: phx-prow
+    cluster: ibm-prow-jobs
     annotations:
       testgrid-create-test-group: "false"
     decorate: true
     spec:
-      nodeSelector:
-        type: vm
-        zone: ci
       containers:
-        - image: quay.io/kubevirtci/flakefinder@sha256:9871c510cde2945ae65406c8e6b153a3e573ced8b95f3eeb8ff47a6642cffdb4
+        - image: quay.io/kubevirtci/flakefinder:v20220505-8aeca1a5
           env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /etc/gcs/service-account.json
@@ -80,12 +74,10 @@ periodics:
     annotations:
       testgrid-create-test-group: "false"
     decorate: true
+    cluster: ibm-prow-jobs
     spec:
-      nodeSelector:
-        type: vm
-        zone: ci
       containers:
-        - image: quay.io/kubevirtci/flakefinder@sha256:9871c510cde2945ae65406c8e6b153a3e573ced8b95f3eeb8ff47a6642cffdb4
+        - image: quay.io/kubevirtci/flakefinder:v20220505-8aeca1a5
           env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /etc/gcs/service-account.json

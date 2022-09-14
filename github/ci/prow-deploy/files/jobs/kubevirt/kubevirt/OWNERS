@@ -5,9 +5,6 @@ filters:
   .*:
     approvers:
     - alonakaplan
-    - ashleyschuett
-    - codificat
-    - danielbelenky
     - davidvossel
     - dhiller
     - enp0s3
@@ -17,25 +14,22 @@ filters:
     - rmohr
     - stu-gott
     - vladikr
+    - xpivarc
     reviewers:
     - acardace
+    - alicefr
     - alonakaplan
-    - ashleyschuett
-    - davidvossel
     - dhiller
     - eddev
     - enp0s3
+    - iholder-redhat
     - jean-edouard
     - maiqueb
+    - marceloamaral
     - mhenriks
-    - omeryahud
-    - phoracek
     - rmohr
     - stu-gott
-    - vatsalparekh
+    - vasiliy-ul
     - vladikr
-    - yuhaohaoyu
-  pkg/virt-api/.*:
-    reviewers:
-    - matthewcarleton
+    - xpivarc
 options: {}

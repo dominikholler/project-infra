@@ -3,17 +3,14 @@ periodics:
   cron: "55 0 * * *"
   annotations:
     testgrid-create-test-group: "false"
+  labels:
+    preset-gcs-credentials: "true"
+    preset-github-credentials: "true"
   decorate: true
-  cluster: phx-prow
+  cluster: ibm-prow-jobs
   spec:
-    nodeSelector:
-      type: vm
-      zone: ci
     containers:
-    - image: quay.io/kubevirtci/flakefinder@sha256:9871c510cde2945ae65406c8e6b153a3e573ced8b95f3eeb8ff47a6642cffdb4
-      env:
-      - name: GOOGLE_APPLICATION_CREDENTIALS
-        value: /etc/gcs/service-account.json
+    - image: quay.io/kubevirtci/flakefinder:v20220505-8aeca1a5
       command:
       - "/app/robots/cmd/flakefinder/app.binary"
       args:
@@ -23,34 +20,18 @@ periodics:
       - --report_output_child_path=kubevirt/cluster-network-addons-operator
       - --repo=cluster-network-addons-operator
       - --skip_results_before_start_of_report=false
-      volumeMounts:
-      - name: token
-        mountPath: /etc/github
-      - name: gcs
-        mountPath: /etc/gcs
-        readOnly: true
-    volumes:
-    - name: token
-      secret:
-        secretName: oauth-token
-    - name: gcs
-      secret:
-        secretName: gcs
 - name: periodic-publish-cnao-flakefinder-daily-report
   cron: "15 1 * * *"
   annotations:
     testgrid-create-test-group: "false"
+  labels:
+    preset-gcs-credentials: "true"
+    preset-github-credentials: "true"
   decorate: true
-  cluster: phx-prow
+  cluster: ibm-prow-jobs
   spec:
-    nodeSelector:
-      type: vm
-      zone: ci
     containers:
-    - image: quay.io/kubevirtci/flakefinder@sha256:9871c510cde2945ae65406c8e6b153a3e573ced8b95f3eeb8ff47a6642cffdb4
-      env:
-      - name: GOOGLE_APPLICATION_CREDENTIALS
-        value: /etc/gcs/service-account.json
+    - image: quay.io/kubevirtci/flakefinder:v20220505-8aeca1a5
       command:
       - "/app/robots/cmd/flakefinder/app.binary"
       args:
@@ -60,34 +41,18 @@ periodics:
       - --report_output_child_path=kubevirt/cluster-network-addons-operator
       - --repo=cluster-network-addons-operator
       - --skip_results_before_start_of_report=false
-      volumeMounts:
-      - name: token
-        mountPath: /etc/github
-      - name: gcs
-        mountPath: /etc/gcs
-        readOnly: true
-    volumes:
-    - name: token
-      secret:
-        secretName: oauth-token
-    - name: gcs
-      secret:
-        secretName: gcs
 - name: periodic-publish-cnao-flakefinder-four-weekly-report
   interval: 168h
   annotations:
     testgrid-create-test-group: "false"
+  labels:
+    preset-gcs-credentials: "true"
+    preset-github-credentials: "true"
   decorate: true
-  cluster: phx-prow
+  cluster: ibm-prow-jobs
   spec:
-    nodeSelector:
-      type: vm
-      zone: ci
     containers:
-    - image: quay.io/kubevirtci/flakefinder@sha256:9871c510cde2945ae65406c8e6b153a3e573ced8b95f3eeb8ff47a6642cffdb4
-      env:
-      - name: GOOGLE_APPLICATION_CREDENTIALS
-        value: /etc/gcs/service-account.json
+    - image: quay.io/kubevirtci/flakefinder:v20220505-8aeca1a5
       command:
       - "/app/robots/cmd/flakefinder/app.binary"
       args:
@@ -97,16 +62,3 @@ periodics:
       - --report_output_child_path=kubevirt/cluster-network-addons-operator
       - --repo=cluster-network-addons-operator
       - --skip_results_before_start_of_report=false
-      volumeMounts:
-      - name: token
-        mountPath: /etc/github
-      - name: gcs
-        mountPath: /etc/gcs
-        readOnly: true
-    volumes:
-    - name: token
-      secret:
-        secretName: oauth-token
-    - name: gcs
-      secret:
-        secretName: gcs

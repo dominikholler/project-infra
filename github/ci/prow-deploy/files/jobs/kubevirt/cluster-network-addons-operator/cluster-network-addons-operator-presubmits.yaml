@@ -15,14 +15,14 @@ presubmits:
       max_concurrency: 6
       cluster: prow-workloads
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
       spec:
         nodeSelector:
           type: bare-metal-external
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+          - image: quay.io/kubevirtci/bootstrap:v20220823-3fed276
             securityContext:
               privileged: true
             resources:
@@ -33,38 +33,6 @@ presubmits:
               - "/bin/sh"
               - "-c"
               - "automation/check-patch.e2e-lifecycle-k8s.sh"
-    - name: pull-e2e-cluster-network-addons-operator-lifecycle-okd
-      skip_branches:
-        - release-\d+\.\d+
-      annotations:
-        fork-per-release: "true"
-      always_run: false
-      optional: true
-      decorate: true
-      decoration_config:
-        timeout: 3h
-        grace_period: 5m
-      max_concurrency: 6
-      labels:
-        preset-dind-enabled: "true"
-        preset-docker-mirror: "true"
-        preset-shared-images: "true"
-      cluster: prow-workloads
-      spec:
-        nodeSelector:
-          type: bare-metal-external
-        containers:
-          - image: gcr.io/k8s-testimages/bootstrap:v20190516-c6832d9
-            securityContext:
-              privileged: true
-            resources:
-              requests:
-                memory: "29Gi"
-            command:
-              - "/usr/local/bin/runner.sh"
-              - "/bin/sh"
-              - "-c"
-              - "automation/check-patch.e2e-lifecycle-okd.sh"
     - name: pull-e2e-cluster-network-addons-operator-workflow-k8s
       skip_branches:
         - release-\d+\.\d+
@@ -79,14 +47,14 @@ presubmits:
       max_concurrency: 6
       cluster: prow-workloads
       labels:
-        preset-dind-enabled: "true"
-        preset-docker-mirror: "true"
+        preset-podman-in-container-enabled: "true"
+        preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
       spec:
         nodeSelector:
           type: bare-metal-external
         containers:
-          - image: gcr.io/k8s-testimages/bootstrap:v20190516-c6832d9
+          - image: quay.io/kubevirtci/bootstrap:v20220823-3fed276
             securityContext:
               privileged: true
             resources:
@@ -97,13 +65,13 @@ presubmits:
               - "/bin/sh"
               - "-c"
               - "automation/check-patch.e2e-workflow-k8s.sh"
-    - name: pull-e2e-cluster-network-addons-operator-workflow-okd
+    - name: pull-e2e-cluster-network-addons-operator-monitoring-k8s
       skip_branches:
         - release-\d+\.\d+
       annotations:
         fork-per-release: "true"
-      always_run: false
-      optional: true
+      always_run: true
+      optional: false
       decorate: true
       decoration_config:
         timeout: 3h
@@ -111,14 +79,14 @@ presubmits:
       max_concurrency: 6
       cluster: prow-workloads
       labels:
-        preset-dind-enabled: "true"
-        preset-docker-mirror: "true"
+        preset-podman-in-container-enabled: "true"
+        preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
       spec:
         nodeSelector:
           type: bare-metal-external
         containers:
-          - image: gcr.io/k8s-testimages/bootstrap:v20190516-c6832d9
+          - image: quay.io/kubevirtci/bootstrap:v20220823-3fed276
             securityContext:
               privileged: true
             resources:
@@ -128,7 +96,7 @@ presubmits:
               - "/usr/local/bin/runner.sh"
               - "/bin/sh"
               - "-c"
-              - "automation/check-patch.e2e-workflow-okd.sh"
+              - "automation/check-patch.e2e-monitoring-k8s.sh"
     - name: pull-e2e-cluster-network-addons-operator-kubemacpool-functests
       skip_branches:
         - release-\d+\.\d+
@@ -144,14 +112,14 @@ presubmits:
       max_concurrency: 6
       cluster: prow-workloads
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
       spec:
         nodeSelector:
           type: bare-metal-external
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+          - image: quay.io/kubevirtci/bootstrap:v20220823-3fed276
             securityContext:
               privileged: true
             resources:
@@ -174,7 +142,7 @@ presubmits:
         timeout: 3h
         grace_period: 5m
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
       cluster: prow-workloads
@@ -182,7 +150,7 @@ presubmits:
         nodeSelector:
           type: bare-metal-external
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+          - image: quay.io/kubevirtci/bootstrap:v20220823-3fed276
             securityContext:
               privileged: true
             resources:
@@ -208,14 +176,14 @@ presubmits:
       max_concurrency: 6
       cluster: prow-workloads
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
       spec:
         nodeSelector:
           type: bare-metal-external
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+          - image: quay.io/kubevirtci/bootstrap:v20220823-3fed276
             securityContext:
               privileged: true
             resources:
@@ -241,14 +209,14 @@ presubmits:
       max_concurrency: 6
       cluster: prow-workloads
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
       spec:
         nodeSelector:
           type: bare-metal-external
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+          - image: quay.io/kubevirtci/bootstrap:v20220823-3fed276
             securityContext:
               privileged: true
             resources:
@@ -259,39 +227,6 @@ presubmits:
               - "/bin/sh"
               - "-c"
               - "automation/check-patch.e2e-bridge-marker-functests.sh"
-    - name: pull-e2e-cluster-network-addons-operator-nmstate-functests
-      skip_branches:
-        - release-\d+\.\d+
-      annotations:
-        fork-per-release: "true"
-      always_run: true
-      optional: false
-      decorate: true
-      skip_report: false
-      decoration_config:
-        timeout: 3h
-        grace_period: 25m
-      max_concurrency: 6
-      cluster: prow-workloads
-      labels:
-        preset-dind-enabled: "true"
-        preset-docker-mirror: "true"
-        preset-shared-images: "true"
-      spec:
-        nodeSelector:
-          type: bare-metal-external
-        containers:
-          - image: gcr.io/k8s-testimages/bootstrap:v20190516-c6832d9
-            securityContext:
-              privileged: true
-            resources:
-              requests:
-                memory: "29Gi"
-            command:
-              - "/usr/local/bin/runner.sh"
-              - "/bin/sh"
-              - "-c"
-              - "automation/check-patch.e2e-nmstate-functests.sh"
     - name: pull-e2e-cluster-network-addons-operator-ovs-cni-functests
       skip_branches:
         - release-\d+\.\d+
@@ -307,14 +242,14 @@ presubmits:
       max_concurrency: 6
       cluster: prow-workloads
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
       spec:
         nodeSelector:
           type: bare-metal-external
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+          - image: quay.io/kubevirtci/bootstrap:v20220823-3fed276
             securityContext:
               privileged: true
             resources:
@@ -340,14 +275,14 @@ presubmits:
       max_concurrency: 6
       cluster: prow-workloads
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
       spec:
         nodeSelector:
           type: bare-metal-external
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+          - image: quay.io/kubevirtci/bootstrap:v20220823-3fed276
             securityContext:
               privileged: true
             resources:

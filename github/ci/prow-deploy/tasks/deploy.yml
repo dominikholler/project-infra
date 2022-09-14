@@ -1,9 +1,3 @@
-- name: install pip dependencies
-  pip:
-    name:
-      - kubernetes==11.0.0
-      - openshift==0.11.2
-
 - name: launch config rendering
   shell: |
     ./render-environment-configs.sh {{ deploy_environment }}
@@ -16,14 +10,7 @@
   args:
     chdir: "{{ project_infra_root}}/github/ci/prow-deploy/kustom"
 
-- name: Launch deployment
-  shell: |
-    kustomize build overlays/{{ deploy_environment }} | kubectl apply -f -
-  args:
-    chdir: "{{ project_infra_root}}/github/ci/prow-deploy/kustom"
-  environment:
-    KUBECONFIG: "{{ kubeconfig_path }}"
-
+# Config needs to be there before the deployment is launched, the deployments depend on the configmaps being there
 - name: Bootstrap the full job config
   shell: |
     config-bootstrapper \
@@ -33,12 +20,63 @@
       --plugin-config=$PLUGIN_CONFIG_PATH \
       --job-config-path=$JOB_CONFIG_PATH
   environment:
-    CONFIG_ROOT: "{{ project_infra_root }}/github/ci/prow-deploy/kustom/overlays/{{ deploy_environment }}/configs"
+    # NOTE: the `--source-path`/`CONFIG_ROOT` MUST NOT contain parts of the relative path that we are using in the plugins config!
+    CONFIG_ROOT: "{{ project_infra_root }}/"
     JOB_CONFIG_PATH: "{{ project_infra_root }}/github/ci/prow-deploy/files/jobs/"
     PROW_CONFIG_PATH: "{{ project_infra_root }}/github/ci/prow-deploy/kustom/overlays/{{ deploy_environment }}/configs/config/config.yaml"
     PLUGIN_CONFIG_PATH: "{{ project_infra_root }}/github/ci/prow-deploy/kustom/overlays/{{ deploy_environment }}/configs/plugins/plugins.yaml"
     KUBECONFIG: "{{ kubeconfig_path }}"
   when: bootstrap_full_config
+
+- name: Delete priority classes on prow-workloads BM cluster
+  when: delete_priority_classes
+  shell: |
+    kubectl delete pc --ignore-not-found=true sriov sriov-place-holder vgpu windows
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Launch deployment
+  shell: |
+    # for now cant execute "kubectl apply --server-side" reliably on
+    # "workloads-production" env (which runs k8s 1.19)
+    APPLY_OPTIONS=
+    if [ "{{deploy_environment}}" != "workloads-production" ]; then
+      APPLY_OPTIONS="--server-side --force-conflicts"
+    fi
+
+    kustomize build overlays/{{ deploy_environment }} | kubectl apply ${APPLY_OPTIONS} -f -
+  args:
+    chdir: "{{ project_infra_root}}/github/ci/prow-deploy/kustom"
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Reconcile webhooks for onboarded repositories
+  shell: |
+    hmac \
+      --config-path=$PROW_CONFIG_PATH \
+      --github-token-path=$GITHUB_TOKEN_PATH \
+      --kubeconfig=$KUBECONFIG \
+      --kubeconfig-context=ibm-prow-jobs \
+      --hmac-token-secret-namespace={{ prowNamespace }} \
+      --hmac-token-secret-name=hmac-token \
+      --hmac-token-key=hmac \
+      --hook-url https://prow.ci.kubevirt.io/hook \
+      --dry-run=false
+  environment:
+    PROW_CONFIG_PATH: "{{ project_infra_root }}/github/ci/prow-deploy/kustom/overlays/{{ deploy_environment }}/configs/config/config.yaml"
+    GITHUB_TOKEN_PATH: "{{ secrets_dir }}/oauth-token"
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  when: reconcile_github_webhooks
+
+# See https://github.com/kubernetes/test-infra/issues/25768
+- name: Rescale pushgateway deployment
+  shell: |
+    kubectl scale deployment --replicas=0 -n kubevirt-prow pushgateway
+    kubectl wait --for=delete pod/$(kubectl get pods -l=app=pushgateway -n kubevirt-prow --no-headers | awk '{ print $1 }') -n kubevirt-prow
+    kubectl scale deployment --replicas=1 -n kubevirt-prow pushgateway
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  when: rescale_pushgateway_deployment
 
 - name: Patch SRIOV nodes
   shell: |

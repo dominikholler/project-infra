@@ -19,7 +19,7 @@ postsubmits:
       preset-kubevirtci-quay-credential: "true"
     spec:
       containers:
-      - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+      - image: quay.io/kubevirtci/bootstrap:v20220728-1410a63
         env:
         - name: DOCKER_PREFIX
           value: quay.io/kubevirt
@@ -57,7 +57,7 @@ postsubmits:
       preset-kubevirtci-quay-credential: "true"
     spec:
       containers:
-      - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+      - image: quay.io/kubevirtci/bootstrap:v20220728-1410a63
         env:
         - name: DOCKER_PREFIX
           value: quay.io/kubevirt
@@ -91,9 +91,10 @@ postsubmits:
       preset-dind-enabled: "true"
       preset-docker-mirror-proxy: "false"
       preset-kubevirtci-quay-credential: "false"
+      preset-github-credentials: "true"
     spec:
       containers:
-      - image: quay.io/kubevirtci/bootstrap:v20201119-a5880e0
+      - image: quay.io/kubevirtci/bootstrap:v20220728-1410a63
         env:
         - name: DOCKER_PREFIX
           value: quay.io/kubevirt
@@ -114,10 +115,82 @@ postsubmits:
         resources:
           requests:
             memory: "8Gi"
-        volumeMounts:
-        - name: token
-          mountPath: /etc/github
-      volumes:
-      - name: token
-        secret:
-          secretName: oauth-token
+  - name: push-containerized-data-importer-main
+    branches:
+    - main
+    cluster: ibm-prow-jobs
+    always_run: true
+    optional: false
+    skip_report: true
+    annotations:
+      testgrid-create-test-group: "false"
+    decorate: true
+    decoration_config:
+      timeout: 3h
+      grace_period: 5m
+    labels:
+      preset-dind-enabled: "true"
+      preset-docker-mirror-proxy: "false"
+      preset-kubevirtci-quay-credential: "false"
+      preset-github-credentials: "true"
+    spec:
+      containers:
+      - image: quay.io/kubevirtci/bootstrap:v20220728-1410a63
+        env:
+        - name: DOCKER_PREFIX
+          value: quay.io/kubevirt
+        - name: GH_CLI_VERSION
+          value: "1.5.0"
+        - name: GITHUB_TOKEN_PATH
+          value: /etc/github/oauth
+        - name: GITHUB_REPOSITORY
+          value: kubevirt/containerized-data-importer
+        - name: GIT_USER_NAME
+          value: kubevirt-bot
+        command: [ "/usr/local/bin/runner.sh", "/bin/sh", "-c" ]
+        args:
+        - ./automation/postsubmit-main.sh
+        # docker-in-docker needs privileged mode
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            memory: "8Gi"
+  - name: push-containerized-data-importer-builder
+    branches:
+    - main
+    cluster: ibm-prow-jobs
+    always_run: true
+    optional: false
+    skip_report: true
+    annotations:
+      testgrid-create-test-group: "false"
+    decorate: true
+    decoration_config:
+      timeout: 3h
+      grace_period: 5m
+    labels:
+      preset-dind-enabled: "true"
+      preset-docker-mirror-proxy: "true"
+      preset-gcs-credentials: "true"
+      preset-github-credentials: "true"
+      preset-kubevirtci-quay-credential: "true"
+    spec:
+      containers:
+      - image: quay.io/kubevirtci/bootstrap:v20220728-1410a63
+        env:
+        - name: DOCKER_PREFIX
+          value: quay.io/kubevirt
+        command:
+          - "/usr/local/bin/runner.sh"
+          - "/bin/sh"
+          - "-ce"
+          - |
+            cat "$QUAY_PASSWORD" | docker login --username $(cat "$QUAY_USER") --password-stdin=true quay.io
+            CDI_CONTAINER_BUILDCMD=buildah make builder-push
+        # docker-in-docker needs privileged mode
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            memory: "8Gi"

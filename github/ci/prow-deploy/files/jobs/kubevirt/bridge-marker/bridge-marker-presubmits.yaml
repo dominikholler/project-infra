@@ -15,19 +15,19 @@ presubmits:
       cluster: prow-workloads
       max_concurrency: 6
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
       spec:
         nodeSelector:
           type: bare-metal-external
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+          - image: quay.io/kubevirtci/bootstrap:v20220823-3fed276
             securityContext:
               privileged: true
             resources:
               requests:
-                memory: "29Gi"
+                memory: "14Gi"
             command:
               - "/usr/local/bin/runner.sh"
               - "/bin/sh"

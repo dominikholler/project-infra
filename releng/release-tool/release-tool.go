@@ -85,8 +85,8 @@ func (r *releaseData) generateReleaseNotes() error {
 - [License][license]
 
 
-[contributing]: https://github.com/%s/%s/blob/master/CONTRIBUTING.md
-[license]: https://github.com/%s/%s/blob/master/LICENSE
+[contributing]: https://github.com/%s/%s/blob/main/CONTRIBUTING.md
+[license]: https://github.com/%s/%s/blob/main/LICENSE
 ---
 `, r.org, r.org, r.repo, r.org, r.repo)
 
@@ -204,8 +204,8 @@ func (r *releaseData) checkoutProjectInfra() error {
 	if err == nil {
 		_, err := gitCommand("-C", r.infraDir, "status")
 		if err == nil {
-			// checkout already exists. default to checkout master
-			_, err = gitCommand("-C", r.infraDir, "checkout", "master")
+			// checkout already exists. default to checkout main
+			_, err = gitCommand("-C", r.infraDir, "checkout", "main")
 			if err != nil {
 				return err
 			}
@@ -249,8 +249,8 @@ func (r *releaseData) checkoutUpstream() error {
 	if err == nil {
 		_, err := gitCommand("-C", r.repoDir, "status")
 		if err == nil {
-			// checkout already exists. default to checkout master
-			_, err = gitCommand("-C", r.repoDir, "checkout", "master")
+			// checkout already exists. default to checkout main
+			_, err = gitCommand("-C", r.repoDir, "checkout", "main")
 			if err != nil {
 				return err
 			}
@@ -401,11 +401,11 @@ func (r *releaseData) forkProwJobs() error {
 			return err
 		}
 
-		_, err = gitCommand("-C", r.infraDir, "pull", "origin", gitbranch)
-		if err != nil {
-			return err
-		}
 	}
+	// ignore error here, we're just trying to make sure we've synced
+	// and pulled down any changes from the origin branch in github
+	// in case there are non local changes that need to get pulled in.
+	_, _ = gitCommand("-C", r.infraDir, "pull", "origin", gitbranch)
 
 	if _, err = os.Stat(fullJobConfig); err != nil && os.IsNotExist(err) {
 		// no job to fork for this project
@@ -444,13 +444,13 @@ func (r *releaseData) forkProwJobs() error {
 
 	if !r.dryRun {
 		// Example at...
-		// https://github.com/kubevirt/kubevirt/blob/master/hack/autobump-kubevirtci.sh
+		// https://github.com/kubevirt/kubevirt/blob/main/hack/autobump-kubevirtci.sh
 		// This should be idempotent, so it's okay if we call this multiple times
 		log.Printf("Creating PR for new prow yamls")
 		cmd := exec.Command("/usr/bin/pr-creator",
 			"--org", "kubevirt",
 			"--repo", "project-infra",
-			"--branch", "master",
+			"--branch", "main",
 			"--github-token-path", r.githubTokenPath,
 			"--title", fmt.Sprintf("Release configs for %s/%s release branch %s", r.org, r.repo, r.newBranch),
 			"--body", "adds new release configs",
@@ -467,21 +467,23 @@ func (r *releaseData) forkProwJobs() error {
 	return nil
 }
 
-func (r *releaseData) cutNewBranch() error {
+func (r *releaseData) cutNewBranch(skipProw bool) error {
 
-	// checkout project infra project in order to update jobs for new branch
-	err := r.checkoutProjectInfra()
-	if err != nil {
-		return err
-	}
+	if !skipProw {
+		// checkout project infra project in order to update jobs for new branch
+		err := r.checkoutProjectInfra()
+		if err != nil {
+			return err
+		}
 
-	err = r.forkProwJobs()
-	if err != nil {
-		return err
+		err = r.forkProwJobs()
+		if err != nil {
+			return err
+		}
 	}
 
 	// checkout remote branch
-	err = r.checkoutUpstream()
+	err := r.checkoutUpstream()
 	if err != nil {
 		return err
 	}
@@ -673,8 +675,8 @@ func (r *releaseData) getBlockers(branch string) (*blockerListCacheEntry, error)
 
 	prListOptions.State = "all"
 	issueListOptions.State = "all"
-	if branch == "master" {
-		// there's never a reason to list all PRs/Issues (both open and closed) in the entire project for master
+	if branch == "main" {
+		// there's never a reason to list all PRs/Issues (both open and closed) in the entire project for main
 		// We do care about open and closed PRS for stable branches though
 		prListOptions.State = "open"
 		issueListOptions.State = "open"
@@ -1093,7 +1095,7 @@ func (r *releaseData) printData() {
 }
 
 func main() {
-	newBranch := flag.String("new-branch", "", "New branch to cut from master.")
+	newBranch := flag.String("new-branch", "", "New branch to cut from main.")
 	releaseTag := flag.String("new-release", "", "New release tag. Must be a valid semver. The branch is automatically detected from the major and minor release")
 	org := flag.String("org", "", "The project org")
 	repo := flag.String("repo", "", "The project repo")
@@ -1105,6 +1107,7 @@ func main() {
 	gitEmail := flag.String("git-email", "", "git user email")
 	skipReleaseNotes := flag.Bool("skip-release-notes", false, "skip generating release notes for a tag")
 	force := flag.Bool("force", false, "force a release or release branch to occur despite blockers or other warnings")
+	skipProw := flag.Bool("skip-prow", false, "skip creating prow configs")
 	promoteRC := flag.String("promote-release-candidate", "", "The tag of an rc release that will be promoted to an official release")
 
 	autoRelease := flag.Bool("auto-release", false, "Automatically perform branch cutting an releases based on time intervals")
@@ -1196,14 +1199,14 @@ func main() {
 			log.Fatalf("ERROR Invalid branch: %s ", err)
 		}
 
-		blocked, err := r.isBranchBlocked("master")
+		blocked, err := r.isBranchBlocked("main")
 		if err != nil {
 			log.Fatalf("ERROR retreiving blockers for branch Branch: %s ", err)
 		} else if blocked {
 			log.Fatal("ERROR Branch is blocked")
 		}
 
-		err = r.cutNewBranch()
+		err = r.cutNewBranch(*skipProw)
 		if err != nil {
 			log.Fatalf("ERROR Creating Branch: %s ", err)
 		}

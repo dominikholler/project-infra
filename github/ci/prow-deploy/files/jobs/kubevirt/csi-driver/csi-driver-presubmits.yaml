@@ -1,14 +1,123 @@
 presubmits:
   kubevirt/csi-driver:
-    - name: pull-csi-driver-e2e-k8s-1.20
+    - name: pull-csi-driver-unit-test
+      cluster: ibm-prow-jobs
       skip_branches:
         - release-\d+\.\d+
       annotations:
         fork-per-release: "true"
-        testgrid-dashboards: kubevirt-presubmits
+        testgrid-create-test-group: "false"
       always_run: true
+      optional: false
+      skip_report: false
+      decorate: true
+      decoration_config:
+      timeout: 1h
+      grace_period: 5m
+      max_concurrency: 11
+      labels:
+        preset-dind-enabled: "true"
+        preset-docker-mirror-proxy: "true"
+        preset-shared-images: "true"
+      spec:
+        containers:
+          - image: quay.io/kubevirtci/golang:v20220728-1410a63
+            command:
+              - "/usr/local/bin/runner.sh"
+              - "/bin/sh"
+              - "-c"
+              - "make test"
+            env:
+              - name: GIMME_GO_VERSION
+                value: "1.18"
+            # docker-in-docker needs privileged mode
+            securityContext:
+              privileged: true
+            resources:
+              requests:
+                memory: "4Gi"
+    - name: pull-csi-driver-linter
+      cluster: ibm-prow-jobs
+      skip_branches:
+        - release-\d+\.\d+
+      annotations:
+        fork-per-release: "true"
+        testgrid-create-test-group: "false"
+      always_run: true
+      optional: false
+      skip_report: false
+      decorate: true
+      decoration_config:
+      timeout: 1h
+      grace_period: 5m
+      max_concurrency: 11
+      labels:
+        preset-dind-enabled: "true"
+        preset-docker-mirror-proxy: "true"
+        preset-shared-images: "true"
+      spec:
+        containers:
+          - image: quay.io/kubevirtci/golang:v20220728-1410a63
+            command:
+              - "/usr/local/bin/runner.sh"
+              - "/bin/sh"
+              - "-c"
+              - "make linter"
+            env:
+              - name: GIMME_GO_VERSION
+                value: "1.18"
+            # docker-in-docker needs privileged mode
+            securityContext:
+              privileged: true
+            resources:
+              requests:
+                memory: "4Gi"
+    - name: pull-csi-driver-sanity-test
+      cluster: ibm-prow-jobs
+      skip_branches:
+        - release-\d+\.\d+
+      annotations:
+        fork-per-release: "true"
+        testgrid-create-test-group: "false"
+      always_run: false
       optional: true
-      skip_report: true
+      skip_report: false
+      decorate: true
+      decoration_config:
+      timeout: 1h
+      grace_period: 5m
+      max_concurrency: 11
+      labels:
+        preset-dind-enabled: "true"
+        preset-docker-mirror-proxy: "true"
+        preset-shared-images: "true"
+      spec:
+        containers:
+          - image: quay.io/kubevirtci/golang:v20220728-1410a63
+            command:
+              - "/usr/local/bin/runner.sh"
+              - "/bin/sh"
+              - "-c"
+              - "make sanity-test"
+            env:
+              - name: GIMME_GO_VERSION
+                value: "1.18"
+            # docker-in-docker needs privileged mode
+            securityContext:
+              privileged: true
+            resources:
+              requests:
+                memory: "4Gi"
+    - name: pull-csi-driver-e2e-k8s-1.23
+      cluster: prow-workloads
+      skip_branches:
+        - release-\d+\.\d+
+      annotations:
+        fork-per-release: "true"
+        testgrid-dashboards: kubevirt-csi-driver-presubmits
+      always_run: true
+      optional: false
+      skip_report: false
       decorate: true
       decoration_config:
         timeout: 7h
@@ -18,17 +127,16 @@ presubmits:
         preset-dind-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
-      cluster: prow-workloads
       spec:
         nodeSelector:
           type: bare-metal-external
         containers:
-          - image: quay.io/kubevirtci/bootstrap:v20210311-09ebaa2
+          - image: quay.io/kubevirtci/golang:v20220728-1410a63
             command:
               - "/usr/local/bin/runner.sh"
               - "/bin/sh"
               - "-c"
-              - "export TARGET=k8s-1.20 && make test-functional"
+              - "./hack/ci/e2e-latest.sh"
             # docker-in-docker needs privileged mode
             securityContext:
               privileged: true

@@ -2,7 +2,7 @@ postsubmits:
   kubevirt/csi-driver:
     - name: publish-csi-driver
       branches:
-        - master
+        - main
       decorate: true
       max_concurrency: 1
       extra_refs:
@@ -12,6 +12,8 @@ postsubmits:
       labels:
         preset-dind-enabled: "true"
         preset-docker-mirror: "true"
+        preset-gcs-credentials: "true"
+        preset-github-credentials: "true"
         preset-kubevirtci-quay-credential: "true"
       annotations:
         testgrid-create-test-group: "false"
@@ -20,34 +22,22 @@ postsubmits:
       spec:
         nodeSelector:
           type: bare-metal-external
-        volumes:
-          - name: token
-            secret:
-              secretName: oauth-token
-          - name: gcs
-            secret:
-              secretName: gcs
         containers:
-          - image: gcr.io/k8s-testimages/kubekins-e2e@sha256:8c80c98d035a0f285ad49b964e5d0b62004844f3340407367841618e80e1503c
+          - image: quay.io/kubevirtci/golang:v20220728-1410a63
             env:
-              - name: GIT_ASKPASS
-                value: "../project-infra/hack/git-askpass.sh"
-              - name: GOOGLE_APPLICATION_CREDENTIALS
-                value: /etc/gcs/service-account.json
+              - name: REPO
+                value: quay.io/kubevirt
+              - name: IMAGE
+                value: csi-driver
+              - name: TAG
+                value: latest
             command:
               - "/usr/local/bin/runner.sh"
               - "/bin/bash"
               - "-c"
               - >
-                cat $QUAY_PASSWORD | docker login quay.io --username $(cat $QUAY_USER) --password-stdin &&
-                make push REPO=quay.io/kubevirt IMAGE=csi-driver TAG=latest
-            volumeMounts:
-              - name: token
-                mountPath: /etc/github
-              # docker-in-docker needs privileged mode
-              - name: gcs
-                mountPath: /etc/gcs
-                readOnly: false
+                cat $QUAY_PASSWORD | docker login quay.io --username $(cat $QUAY_USER) --password-stdin=true &&
+                make push
             securityContext:
               privileged: true
             resources:

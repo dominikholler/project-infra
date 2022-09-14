@@ -23,7 +23,7 @@ mkdir -p /tmp/cache/bazel
 echo "startup --output_user_root=/tmp/cache/bazel" >> "${HOME}/.bazelrc"
 echo "startup --output_user_root=/tmp/cache/bazel" >> "/etc/bazel.bazelrc"
 
-# Check if the job has opted-in to bazel remote caching and if so generate 
+# Check if the job has opted-in to bazel remote caching and if so generate
 # .bazelrc entries pointing to the remote cache
 export BAZEL_REMOTE_CACHE_ENABLED=${BAZEL_REMOTE_CACHE_ENABLED:-false}
 if [[ "${BAZEL_REMOTE_CACHE_ENABLED}" == "true" ]]; then
@@ -41,35 +41,27 @@ setup_ca(){
     fi
 }
 
-# runs custom docker data root cleanup binary and debugs remaining resources
-cleanup_dind() {
-    if [[ "${DOCKER_IN_DOCKER_ENABLED:-false}" == "true" ]]; then
-        echo "Cleaning up after docker"
-        docker ps -aq | xargs -r docker rm -f || true
-        kill "$(</var/run/docker.pid)" || true
-        wait "$(</var/run/docker.pid)" || true
+# runs custom podman data root cleanup binary and debugs remaining resources
+cleanup_pinc() {
+    if [[ "${PODMAN_IN_CONTAINER_ENABLED:-false}" == "true" ]]; then
+        echo "Cleaning up after podman"
+        podman ps -aq | xargs -r podman rm -f || true
+        kill "$(</var/run/podman.pid)" || true
+        wait "$(</var/run/podman.pid)" || true
     fi
 }
 
 early_exit_handler() {
-    cleanup_dind
+    cleanup_pinc
 }
 
 # setup certificates before anything gets started
 setup_ca
 
-# optionally enable ipv6 docker
-export DOCKER_IN_DOCKER_IPV6_ENABLED=${DOCKER_IN_DOCKER_IPV6_ENABLED:-false}
-if [[ "${DOCKER_IN_DOCKER_IPV6_ENABLED}" == "true" ]]; then
-    echo "Enabling IPV6 for Docker."
-    # configure the daemon with ipv6
-    mkdir -p /etc/docker/
-    cat <<EOF >/etc/docker/daemon.json
-{
-  "ipv6": true,
-  "fixed-cidr-v6": "fc00:db8:1::/64"
-}
-EOF
+# optionally enable ipv6
+export PODMAN_IN_CONTAINER_IPV6_ENABLED=${PODMAN_IN_CONTAINER_IPV6_ENABLED:-true}
+if [[ "${PODMAN_IN_CONTAINER_IPV6_ENABLED}" == "true" ]]; then
+    echo "Enabling IPV6."
     # enable ipv6
     sysctl net.ipv6.conf.all.disable_ipv6=0
     sysctl net.ipv6.conf.all.forwarding=1
@@ -77,41 +69,46 @@ EOF
     modprobe -v ip6table_nat
 fi
 
-# Check if the job has opted-in to docker-in-docker availability.
-export DOCKER_IN_DOCKER_ENABLED=${DOCKER_IN_DOCKER_ENABLED:-false}
-if [[ "${DOCKER_IN_DOCKER_ENABLED}" == "true" ]]; then
-    echo "Docker in Docker enabled, initializing..."
-    printf '=%.0s' {1..80}; echo
-    # If we have opted in to docker in docker, start the docker daemon,
+export PODMAN_IN_CONTAINER_ENABLED=${PODMAN_IN_CONTAINER_ENABLED:-false}
+if [[ "${PODMAN_IN_CONTAINER_ENABLED}" == "true" ]]; then
+    echo "Podman in Container enabled, initializing in podman compatible mode..."
+    PODMAN_SOCKET_PATH=/run/podman
+    PODMAN_SOCKET=${PODMAN_SOCKET_PATH}/podman.sock
     (
-        if [ -f "/etc/default/docker" ]; then
-            source /etc/default/docker
-        fi
-        /usr/bin/dockerd \
-            -p /var/run/docker.pid \
-            --data-root=/docker-graph \
-            --init-path /usr/libexec/docker/docker-init \
-            --userland-proxy-path /usr/libexec/docker/docker-proxy \
-            ${DOCKER_OPTS} \
-                >/var/log/dockerd.log 2>&1 &
+        export HTTP_PROXY=${CONTAINER_HTTP_PROXY}
+        export HTTPS_PROXY=${CONTAINER_HTTPS_PROXY}
+        export KIND_EXPERIMENTAL_PROVIDER="podman"
+
+        mkdir -p ${PODMAN_SOCKET_PATH}
+      
+        podman system service \
+                -t 0 \
+                unix://${PODMAN_SOCKET} \
+                >/var/log/podman.log 2>&1 &
+        echo "${!}" > /var/run/podman.pid
+
+        ln -s ${PODMAN_SOCKET} /var/run/docker.sock
+        # Set podman short-name-mode to permissive
+        sed -i 's/short-name-mode="enforcing"/short-name-mode="permissive"/g' /etc/containers/registries.conf
     )
-    # the service can be started but the docker socket not ready, wait for ready
+    # the service can be started but the socket not ready, wait for ready
     WAIT_N=0
     MAX_WAIT=5
     while true; do
-        # docker ps -q should only work if the daemon is ready
-        docker ps -q > /dev/null 2>&1 && break
+        # wait for podman socket to be ready
+        curl --unix-socket "${PODMAN_SOCKET}" http://d/v3.0.0/libpod/info >/dev/null 2>&1 && break
         if [[ ${WAIT_N} -lt ${MAX_WAIT} ]]; then
             WAIT_N=$((WAIT_N+1))
-            echo "Waiting for docker to be ready, sleeping for ${WAIT_N} seconds."
+            echo "Waiting for podman socket to be ready, sleeping for ${WAIT_N} seconds."
             sleep ${WAIT_N}
         else
             echo "Reached maximum attempts, not waiting any longer..."
-            break
+	    echo "Docker daemon failed to start successfully"
+            exit 1
         fi
     done
     printf '=%.0s' {1..80}; echo
-    echo "Done setting up docker in docker."
+    echo "Done setting up podman in container."
 fi
 
 trap early_exit_handler INT TERM
@@ -126,6 +123,12 @@ mkdir -p "${GOPATH}/bin"
 if [[ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]]; then
   gcloud auth activate-service-account --key-file="${GOOGLE_APPLICATION_CREDENTIALS}" || true
 fi
+
+# Set up Container Registry Auth file
+mkdir -p "${HOME}/containers" && echo "{}" > "${HOME}/containers/auth.json"
+export REGISTRY_AUTH_FILE="${HOME}/containers/auth.json"
+# Bazel push expects credentials to be available at ${HOME}/.docker/config.json
+mkdir "${HOME}/.docker" && ln -s "${REGISTRY_AUTH_FILE}" "${HOME}/.docker/config.json"
 
 # Use a reproducible build date based on the most recent git commit timestamp.
 SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct || true)
@@ -144,12 +147,12 @@ set +o xtrace
 for file in $(find /etc/teardown.mixin.d/ -maxdepth 1 -name '*.sh' -print -quit); do source $file; done
 
 # cleanup after job
-if [[ "${DOCKER_IN_DOCKER_ENABLED}" == "true" ]]; then
-    echo "Cleaning up after docker in docker."
+if [[ "${PODMAN_IN_CONTAINER_ENABLED}" == "true" ]]; then
+    echo "Cleaning up after podman in container."
     printf '=%.0s' {1..80}; echo
-    cleanup_dind
+    cleanup_pinc
     printf '=%.0s' {1..80}; echo
-    echo "Done cleaning up after docker in docker."
+    echo "Done cleaning up after podman in container."
 fi
 
 # preserve exit value from job / bootstrap

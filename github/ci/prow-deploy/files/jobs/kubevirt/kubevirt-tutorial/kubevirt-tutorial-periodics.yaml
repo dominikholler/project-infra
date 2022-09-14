@@ -10,14 +10,12 @@ periodics:
     extra_refs:
       - org: kubevirt
         repo: kubevirt-tutorial
-        base_ref: master
+        base_ref: main
         path_alias: kubevirt-tutorial
-    cluster: phx-prow
+    cluster: ibm-prow-jobs
     spec:
-      nodeSelector:
-        region: primary
       containers:
-        - image: quay.io/kubevirtci/bootstrap:v20201119-a5880e0
+        - image: quay.io/kubevirtci/bootstrap:v20220728-1410a63
           command:
             - "/usr/local/bin/runner.sh"
             - "/bin/sh"

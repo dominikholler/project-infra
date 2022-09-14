@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # Includes basic workspace setup, with gcloud and a bootstrap runner
-FROM fedora:32
+FROM fedora:36
 
 WORKDIR /workspace
 RUN mkdir -p /workspace
@@ -26,15 +26,17 @@ ARG IMAGE_ARG
 ENV IMAGE=${IMAGE_ARG}
 
 # Install packages
-RUN dnf install -y dnf-plugins-core && \
-  dnf -y install \
+RUN dnf install -y \
     cpio \
+    dnf-plugins-core \
     findutils \
     gcc \
     gcc-c++ \
+    gettext \
     git \
     glibc-devel \
     glibc-static \
+    iproute \
     java-11-openjdk-devel \
     jq \
     libstdc++-static \
@@ -48,10 +50,11 @@ RUN dnf install -y dnf-plugins-core && \
     redhat-rpm-config \
     rsync \
     rsync-daemon \
+    skopeo \
     sudo \
-    wget \
-    gettext \
-    iproute &&\
+    buildah \
+    qemu-user-static \
+    wget &&\
   dnf -y clean all
 
 # Install gcloud
@@ -69,44 +72,50 @@ RUN wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/google-cloud-sdk.ta
     gcloud components install alpha beta kubectl && \
     gcloud info | tee /workspace/gcloud-info.txt
 
-
 #
-# BEGIN: DOCKER IN DOCKER SETUP
-#
-# Install packages
-
-RUN dnf install -y \
-        kmod \
-        procps-ng \
-        moby-engine && \
-    dnf -y clean all
-
-# Create directory for docker storage location
-# NOTE this should be mounted and persisted as a volume ideally (!)
-# We will make a fallback one now just in case
-RUN mkdir /docker-graph
-
-#
-# END: DOCKER IN DOCKER SETUP
+# BEGIN: PODMAN IN CONTAINER SETUP
 #
 
+RUN dnf -y update; dnf -y reinstall shadow-utils && \
+    dnf -y install crun podman --exclude container-selinux && \
+    dnf -y clean all && \
+    ln -s /usr/bin/podman /usr/bin/docker
+
+VOLUME /var/lib/containers
+
+COPY containers.conf /etc/containers/containers.conf
+COPY podman.json /etc/containers/networks/podman.json
+
+RUN chmod 644 /etc/containers/containers.conf
+
+ENV _CONTAINERS_USERNS_CONFIGURED=""
+
+#
+# END: PODMAN IN CONTAINER SETUP
+#
 
 # Cache the most commonly used bazel versions in the container
-RUN  curl -Lo ./bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.7.4/bazelisk-linux-amd64 && \
+ARG ARCH
+RUN  curl -Lo ./bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.7.4/bazelisk-linux-${ARCH} && \
      chmod +x ./bazelisk && mv ./bazelisk /usr/local/bin/bazelisk && \
      cd /usr/local/bin && ln -s bazelisk bazel
 
 # Cache the most commonly used bazel versions inside the image
 # and remove resulting cache directories to save a few hundred MB
-RUN USE_BAZEL_VERSION=3.4.1 bazel version && \
-  USE_BAZEL_VERSION=4.0.0 bazel version && \
-  rm -rf /root/.cache/bazel
+RUN USE_BAZEL_VERSION=4.1.0 bazel version && \
+    USE_BAZEL_VERSION=4.2.1 bazel version && \
+    USE_BAZEL_VERSION=5.3.0 bazel version && \
+    rm -rf /root/.cache/bazel
 
 # create mixin directories
 RUN mkdir -p /etc/setup.mixin.d/ && mkdir -p /etc/teardown.mixin.d/
 
-# note the runner is also responsible for making docker in docker function if
-# env DOCKER_IN_DOCKER_ENABLED is set and similarly responsible for generating
+# Trust git repositories used for e2e jobs
+RUN git config --global --add safe.directory '*'
+
+# note the runner is also responsible for making podman in container function if
+# env PODMAN_IN_CONTAINER_ENABLED is set and similarly responsible for generating
+
 # .bazelrc files if bazel remote caching is enabled
 COPY ["entrypoint.sh", "runner.sh", "create_bazel_cache_rcs.sh", \
         "/usr/local/bin/"]

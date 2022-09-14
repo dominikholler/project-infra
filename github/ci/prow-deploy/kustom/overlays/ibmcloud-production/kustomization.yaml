@@ -7,10 +7,14 @@ resources:
   - ../../components/docker-mirror-proxy/base
   - ../../components/greenhouse/base
   - resources/docker-mirror-proxy_pvc.yaml
-  - resources/ingress-class.yaml
   - resources/hook-rbac.yaml
   - resources/horologium-rbac.yaml
   - resources/sinker-rbac.yaml
+  - resources/prow-exporter-deployment.yaml
+  - resources/prow-exporter-rbac.yaml
+  - resources/prow-exporter-service.yaml
+  - resources/ci-usage-exporter-deployment.yaml
+  - resources/ci-usage-exporter-service.yaml
   # templated resources
   - resources/admin-rbac.yaml
 
@@ -61,6 +65,12 @@ patches:
       kind: Deployment
       name: prow-controller-manager
     path: patches/JsonRFC6902/prow_controller_manager_deployment.yaml
+  - target:
+      version: v1
+      group: apps
+      kind: Deployment
+      name: sinker
+    path: patches/JsonRFC6902/sinker_deployment.yaml
   - target:
       version: v1
       group: apps
@@ -141,7 +151,7 @@ patches:
     path: patches/JsonRFC6902/prow-namespace.yaml
   - target:
       group: rbac.authorization.k8s.io
-      version: v1beta1
+      version: v1
       kind: Role
       namespace: default
       name: .*
@@ -169,14 +179,14 @@ patches:
     path: patches/JsonRFC6902/prow-jobs-namespace.yaml
   - target:
       group: rbac.authorization.k8s.io
-      version: v1beta1
+      version: v1
       kind: RoleBinding
       namespace: test-pods
       name: .*
     path: patches/JsonRFC6902/prow-jobs-namespace.yaml
   - target:
       group: rbac.authorization.k8s.io
-      version: v1beta1
+      version: v1
       kind: ClusterRoleBinding
       name: prow-rehearse
     path: patches/JsonRFC6902/rolebinding-subject-prow-namespace.yaml
@@ -189,21 +199,21 @@ patches:
     path: patches/JsonRFC6902/rolebinding-subject-prow-namespace.yaml
   - target:
       group: rbac.authorization.k8s.io
-      version: v1beta1
+      version: v1
       kind: RoleBinding
       namespace: test-pods
       name: .*
     path: patches/JsonRFC6902/rolebinding-subject-prow-namespace.yaml
   - target:
       group: rbac.authorization.k8s.io
-      version: v1beta1
+      version: v1
       kind: RoleBinding
       namespace: default
       name: .*
     path: patches/JsonRFC6902/prow-namespace.yaml
   - target:
       group: rbac.authorization.k8s.io
-      version: v1beta1
+      version: v1
       kind: Role
       namespace: test-pods
       name: .*
@@ -231,7 +241,7 @@ patches:
   - target:
       version: v1
       kind: Secret
-      namespace: ""
+      namespace: default
       name: .*
     path: patches/JsonRFC6902/prow-namespace.yaml
   - target:
@@ -242,7 +252,7 @@ patches:
     path: patches/JsonRFC6902/prow-namespace.yaml
   - target:
       group: batch
-      version: v1beta1
+      version: v1
       kind: CronJob
       namespace: ""
       name: .*
@@ -271,7 +281,17 @@ secretGenerator:
     files:
       - oauth=secrets/oauth-token
     type: Opaque
+  - name: oauth-token
+    namespace: kubevirt-prow-jobs
+    files:
+      - oauth=secrets/oauth-token
+    type: Opaque
   - name: gcs
+    files:
+      - secrets/service-account.json
+    type: Opaque
+  - name: gcs
+    namespace: kubevirt-prow-jobs
     files:
       - secrets/service-account.json
     type: Opaque
@@ -283,10 +303,6 @@ secretGenerator:
     files:
       - secret=secrets/cookie
     type: Opaque
-  - name: hmac-token
-    files:
-      - hmac=secrets/hmac-token
-    type: Opaque
   - name: github-oauth-config
     files:
       - secret=secrets/github-oauth-config
@@ -295,10 +311,20 @@ secretGenerator:
     files:
       - config=secrets/kubeconfig
     type: Opaque
+  - name: kubeconfig-build-test-infra-trusted
+    files:
+      - kubeconfig=secrets/kubeconfig-build-test-infra-trusted
+  - name: kubeconfig-build-k8s-prow-builds
+    files:
+      - kubeconfig=secrets/kubeconfig-build-k8s-prow-builds
+  - name: kubeconfig-build-rules-k8s
+    files:
+      - kubeconfig=secrets/kubeconfig-build-rules-k8s
   - name: unsplash-api-key
     literals:
       - honk.txt=
   - name: kubevirtci-docker-credential
+    namespace: kubevirt-prow-jobs
     # username=dockerUser
     # password=dockerPass
     envs:
@@ -306,23 +332,39 @@ secretGenerator:
     type: Opaque
 
   - name: kubevirtci-quay-credential
+    namespace: kubevirt-prow-jobs
     # username=quayUser
     # password=quayPass
     envs:
     - secrets/kubevirtci-quay-credential
     type: Opaque
   - name: kubevirtci-installer-pull-token
+    namespace: kubevirt-prow-jobs
     files:
       # installerPullToken
       - token=secrets/kubevirtci-installer-pull-token
     type: Opaque
   - name: commenter-oauth-token
+    namespace: kubevirt-prow-jobs
     # githubCommenterToken
     files:
       - oauth=secrets/commenter-oauth-token
     type: Opaque
   - name: kubevirtci-coveralls-token
+    namespace: kubevirt-prow-jobs
     files:
       # coverallsToken
       - token=secrets/kubevirtci-coveralls-token
+    type: Opaque
+  - name: kubevirtci-fossa-token
+    namespace: kubevirt-prow-jobs
+    files:
+      # fossaToken
+      - token=secrets/kubevirtci-fossa-token
+    type: Opaque
+  - name: prow-kubevirtbot-github-ssh-secret
+    namespace: kubevirt-prow-jobs
+    files:
+      # prowKubevirtbotSSHPrivateKey
+      - token=secrets/prow-kubevirtbot-github-ssh-secret
     type: Opaque

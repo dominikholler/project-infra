@@ -2,7 +2,7 @@ postsubmits:
   kubevirt/community:
     - name: postsubmit-community-update-kubevirt-devstats-repo-sql
       branches:
-        - master
+        - main
       cluster: ibm-prow-jobs
       always_run: false
       run_if_changed: "sigs.yaml"
@@ -15,13 +15,12 @@ postsubmits:
           base_ref: master
       annotations:
         testgrid-create-test-group: "false"
+      labels:
+        preset-github-credentials: "true"
       decorate: true
       spec:
         containers:
-          - image: quay.io/kubevirt/builder@sha256:0e2dde4051711e243dbb7be57a7c10f67a3b33bc764304e14297e324deaddee0
-            env:
-              - name: GIT_ASKPASS
-                value: /go/src/github.com/kubevirt/project-infra/hack/git-askpass.sh
+          - image: quay.io/kubevirt/builder:2203011706-a6a84d038
             command: [ "/bin/sh" , "-c" ]
             args:
               - |
@@ -30,16 +29,11 @@ postsubmits:
                 TARGET_DIR=$REPO_DIR/scripts/kubevirt/
                 mkdir -p $TARGET_DIR
                 pip3 install ruamel.yaml
+                export GIT_ASKPASS=$PWD/../project-infra/hack/git-askpass.sh
                 ../project-infra/hack/git-pr.sh -c "python3 $(pwd)/hack/generate-devstats-repo-sql.py --repo-groups-sql $TARGET_DIR/repo_groups.sql" -p $REPO_DIR -o cncf -r devstats -b update-kubevirt-devstats-repo-sql
-            volumeMounts:
-              - name: token
-                mountPath: /etc/github
             resources:
               requests:
                 memory: "1Gi"
               limits:
                 memory: "1Gi"
-        volumes:
-          - name: token
-            secret:
-              secretName: oauth-token
+

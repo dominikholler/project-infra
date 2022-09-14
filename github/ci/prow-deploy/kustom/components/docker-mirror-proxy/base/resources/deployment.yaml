@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -8,6 +9,9 @@ spec:
     matchLabels:
       app: docker-mirror-proxy
   replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
   template:
     metadata:
       labels:
@@ -16,7 +20,7 @@ spec:
       terminationGracePeriodSeconds: 180
       containers:
       - name: mirror-proxy
-        image: rpardini/docker-registry-proxy:0.6.2
+        image: ghcr.io/rpardini/docker-registry-proxy:0.6.2
         env:
         - name: ENABLE_MANIFEST_CACHE
           value: "true"
@@ -38,8 +42,6 @@ spec:
           value: "1200s"
         - name: PROXY_READ_TIMEOUT
           value: "1200s"
-        - name: PROXY_CONNECT_TIMEOUT
-          value: "1200s"
         - name: PROXY_SEND_TIMEOUT
           value: "1200s"
         volumeMounts:
@@ -54,10 +56,13 @@ spec:
         ports:
           - name: http
             containerPort: 3128
+            protocol: TCP
         resources:
           requests:
+            cpu: 300m
             memory: 3Gi
           limits:
+            cpu: 300m
             memory: 3Gi
       volumes:
       - name: ca-public

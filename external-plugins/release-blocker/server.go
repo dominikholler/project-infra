@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
-
 	"k8s.io/test-infra/prow/config"
 	"k8s.io/test-infra/prow/github"
 	"k8s.io/test-infra/prow/pluginhelp"
@@ -317,8 +316,8 @@ func (s *Server) handleIssueComment(l *logrus.Entry, ic github.IssueCommentEvent
 
 	// validate the user is allowed to block or unblock
 	// Since this needs to work with issues and PRs, we default to the
-	// owners in the master branch of the repo
-	ok, err := s.canLabel(org, repo, "master", commentAuthor)
+	// owners in the main branch of the repo
+	ok, err := s.canLabel(org, repo, "main", commentAuthor)
 	if err != nil {
 		return err
 	}

@@ -317,7 +317,7 @@ func (h *GitHubEventsHandler) generatePresubmits(
 		}
 		log.Infof("Detected modified or new presubmit: %s.", headPresubmit.Name)
 
-		job := pjutil.NewPresubmit(*pr, pr.Base.SHA, headPresubmit, eventGUID)
+		job := pjutil.NewPresubmit(*pr, pr.Base.SHA, headPresubmit, eventGUID, map[string]string{})
 
 		if rehearsalRestricted(job) {
 			h.logger.Infof("Skipping rehersal job for: %s because it is restricted", job.Name)
@@ -388,7 +388,7 @@ func (h *GitHubEventsHandler) loadConfigsAtRef(
 			log.WithError(err).Infoln("Could not write temp file")
 			return nil, err
 		}
-		pc, err := config.Load(prowConfigTmp, jobConfigTmp)
+		pc, err := config.Load(prowConfigTmp, jobConfigTmp, nil, "")
 		if err != nil {
 			log.WithError(err).Errorf("Could not load job config from path %s at git ref %s", jobConfigTmp, ref)
 			return nil, err

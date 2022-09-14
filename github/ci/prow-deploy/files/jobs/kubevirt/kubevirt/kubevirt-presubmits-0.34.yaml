@@ -371,7 +371,7 @@ presubmits:
     name: pull-kubevirt-e2e-kind-1.17-sriov-release-0.34
     context: pull-kubevirt-e2e-kind-1.17-sriov
     optional: true
-    cluster: phx-prow
+    cluster: prow-workloads
     spec:
       affinity:
         podAntiAffinity:
@@ -427,6 +427,7 @@ presubmits:
           path: /dev/vfio/
           type: Directory
         name: vfio
+      priorityClassName: sriov
   - always_run: true
     branches:
     - release-0.34
@@ -499,7 +500,6 @@ presubmits:
       grace_period: 5m0s
       timeout: 1h0m0s
     labels:
-      preset-bazel-cache: "true"
       preset-dind-enabled: "true"
       preset-docker-mirror-proxy: "true"
     name: pull-kubevirt-generate-0.34
@@ -528,14 +528,13 @@ presubmits:
       grace_period: 5m0s
       timeout: 1h0m0s
     labels:
-      preset-bazel-cache: "true"
       preset-dind-enabled: "true"
       preset-docker-mirror-proxy: "true"
     name: pull-kubevirt-build-release-0.34-0.34
     context: pull-kubevirt-build-release-0.34
     optional: false
     skip_report: false
-    cluster: phx-prow
+    cluster: ibm-prow-jobs
     spec:
       containers:
       - command:
@@ -559,7 +558,6 @@ presubmits:
       grace_period: 5m0s
       timeout: 1h0m0s
     labels:
-      preset-bazel-cache: "true"
       preset-dind-enabled: "true"
       preset-docker-mirror-proxy: "true"
     name: pull-kubevirt-unit-test-0.34
@@ -587,7 +585,6 @@ presubmits:
       grace_period: 10m0s
       timeout: 1h0m0s
     labels:
-      preset-bazel-cache: "true"
       preset-dind-enabled: "true"
       preset-docker-mirror-proxy: "true"
     name: pull-kubevirt-goveralls-0.34
@@ -627,7 +624,6 @@ presubmits:
       grace_period: 5m0s
       timeout: 1h0m0s
     labels:
-      preset-bazel-cache: "true"
       preset-dind-enabled: "true"
       preset-docker-mirror-proxy: "true"
     name: pull-kubevirt-apidocs-0.34
@@ -655,7 +651,6 @@ presubmits:
       grace_period: 5m0s
       timeout: 1h0m0s
     labels:
-      preset-bazel-cache: "true"
       preset-dind-enabled: "true"
       preset-docker-mirror-proxy: "true"
     name: pull-kubevirt-client-python-0.34
@@ -683,7 +678,6 @@ presubmits:
       grace_period: 5m0s
       timeout: 1h0m0s
     labels:
-      preset-bazel-cache: "true"
       preset-dind-enabled: "true"
       preset-docker-mirror-proxy: "true"
     name: pull-kubevirt-manifests-0.34
@@ -712,7 +706,6 @@ presubmits:
       grace_period: 5m0s
       timeout: 1h0m0s
     labels:
-      preset-bazel-cache: "true"
       preset-dind-enabled: "true"
       preset-docker-mirror-proxy: "true"
     name: pull-kubevirt-prom-rules-verify-0.34

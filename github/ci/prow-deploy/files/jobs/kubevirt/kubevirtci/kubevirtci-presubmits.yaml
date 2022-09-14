@@ -1,381 +1,393 @@
 presubmits:
   kubevirt/kubevirtci:
-  - name: check-up-kind-1.17-sriov
+  - always_run: true
     annotations:
-      k8s.v1.cni.cncf.io/networks: multus-cni-ns/sriov-passthrough-cni
-    always_run: true
-    optional: false
+      k8s.v1.cni.cncf.io/networks: multus-cni-ns/sriov-passthrough-cni,multus-cni-ns/sriov-passthrough-cni
+    cluster: prow-workloads
     decorate: true
     decoration_config:
-      timeout: 1h
-    max_concurrency: 1
+      timeout: 3h0m0s
     labels:
       preset-dind-enabled: "true"
       preset-docker-mirror-proxy: "true"
       preset-kubevirtci-installer-pull-token: "true"
-      sriov-pod: "true"
       rehearsal.allowed: "true"
-    cluster: phx-prow
-    spec:
-      nodeSelector:
-        hardwareSupport: sriov-nic
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: sriov-pod
-                    operator: In
-                    values:
-                      - "true"
-              topologyKey: kubernetes.io/hostname
-            - labelSelector:
-                matchExpressions:
-                  - key: sriov-pod-multi
-                    operator: In
-                    values:
-                      - "true"
-              topologyKey: kubernetes.io/hostname
-      containers:
-        - image: quay.io/kubevirtci/golang:v20210316-d295087
-          env:
-            - name: "GIMME_GO_VERSION"
-              value: "1.13.8"
-            - name: "KUBEVIRT_PROVIDER"
-              value: "kind-k8s-sriov-1.17.0"
-            - name: "KUBEVIRT_NUM_NODES"
-              value: "2"
-          command:
-            - "/usr/local/bin/runner.sh"
-            - "/bin/bash"
-            - "-c"
-            - >
-              trap "echo teardown && make cluster-down" EXIT ERR SIGINT SIGTERM &&
-              make cluster-up
-          # docker-in-docker needs privileged mode
-          securityContext:
-            privileged: true
-          resources:
-            requests:
-              memory: "15Gi"
-          volumeMounts:
-            #for running kind with dind (see https://github.com/kubernetes-sigs/kind/issues/303)
-            - name: modules
-              mountPath: /lib/modules
-              readOnly: true
-            - name: cgroup
-              mountPath: /sys/fs/cgroup
-            - name: vfio
-              mountPath: /dev/vfio/
-      volumes:
-        - name: modules
-          hostPath:
-            path: /lib/modules
-            type: Directory
-        - name: cgroup
-          hostPath:
-            path: /sys/fs/cgroup
-            type: Directory
-        - name: vfio
-          hostPath:
-            path: /dev/vfio/
-            type: Directory
-
-  - name: check-up-kind-1.19-sriov
-    annotations:
-      k8s.v1.cni.cncf.io/networks: 'multus-cni-ns/sriov-passthrough-cni,multus-cni-ns/sriov-passthrough-cni'
-    always_run: false
-    optional: true
-    decorate: true
-    decoration_config:
-      timeout: 1h
+      sriov-pod: "true"
     max_concurrency: 1
-    labels:
-      preset-dind-enabled: "true"
-      preset-docker-mirror-proxy: "true"
-      preset-kubevirtci-installer-pull-token: "true"
-      sriov-pod: "true"
-      rehearsal.allowed: "true"
-    cluster: phx-prow
+    name: check-up-kind-1.22-sriov
     spec:
-      nodeSelector:
-        hardwareSupport: sriov-nic
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: sriov-pod
-                    operator: In
-                    values:
-                      - "true"
-              topologyKey: kubernetes.io/hostname
-            - labelSelector:
-                matchExpressions:
-                  - key: sriov-pod-multi
-                    operator: In
-                    values:
-                      - "true"
-              topologyKey: kubernetes.io/hostname
+          - labelSelector:
+              matchExpressions:
+              - key: sriov-pod
+                operator: In
+                values:
+                - "true"
+            topologyKey: kubernetes.io/hostname
+          - labelSelector:
+              matchExpressions:
+              - key: sriov-pod-multi
+                operator: In
+                values:
+                - "true"
+            topologyKey: kubernetes.io/hostname
       containers:
-      - image: quay.io/kubevirtci/golang:v20210316-d295087
+      - command:
+        - /usr/local/bin/runner.sh
+        - /bin/bash
+        - -ce
+        - |
+          trap "echo teardown && make cluster-down" EXIT SIGINT
+          make cluster-up
+          ./cluster-up/cluster/kind/check-cluster-up.sh
         env:
-        - name: "GIMME_GO_VERSION"
-          value: "1.13.8"
-        - name: "KUBEVIRT_PROVIDER"
-          value: "kind-1.19-sriov"
-        - name: "KUBEVIRT_NUM_NODES"
+        - name: KUBEVIRT_PROVIDER
+          value: kind-1.22-sriov
+        - name: KUBEVIRT_NUM_NODES
           value: "3"
-        command:
-        - "/usr/local/bin/runner.sh"
-        - "/bin/bash"
-        - "-c"
-        - >
-            trap "echo teardown && make cluster-down" EXIT ERR SIGINT SIGTERM &&
-            make cluster-up
-        # docker-in-docker needs privileged mode
-        securityContext:
-          privileged: true
+        - name: RUN_KUBEVIRT_CONFORMANCE
+          value: "true"
+        - name: SONOBUOY_EXTRA_ARGS
+          value: --plugin-env kubevirt-conformance.E2E_FOCUS=SRIOV
+        image: quay.io/kubevirtci/golang-legacy:v20220810-a8f2e6c
+        name: ""
         resources:
           requests:
-            memory: "15Gi"
+            memory: 15Gi
+        securityContext:
+          privileged: true
         volumeMounts:
-          #for running kind with dind (see https://github.com/kubernetes-sigs/kind/issues/303)
-          - name: modules
-            mountPath: /lib/modules
-            readOnly: true
-          - name: cgroup
-            mountPath: /sys/fs/cgroup
-          - name: vfio
-            mountPath: /dev/vfio/
+        - mountPath: /lib/modules
+          name: modules
+          readOnly: true
+        - mountPath: /sys/fs/cgroup
+          name: cgroup
+        - mountPath: /dev/vfio/
+          name: vfio
+      nodeSelector:
+        hardwareSupport: sriov-nic
+      priorityClassName: sriov
       volumes:
-        - name: modules
-          hostPath:
-            path: /lib/modules
-            type: Directory
-        - name: cgroup
-          hostPath:
-            path: /sys/fs/cgroup
-            type: Directory
-        - name: vfio
-          hostPath:
-            path: /dev/vfio/
-            type: Directory
-
-  - name: check-provision-k8s-1.18
-    always_run: true
-    optional: false
+      - hostPath:
+          path: /lib/modules
+          type: Directory
+        name: modules
+      - hostPath:
+          path: /sys/fs/cgroup
+          type: Directory
+        name: cgroup
+      - hostPath:
+          path: /dev/vfio/
+          type: Directory
+        name: vfio
+  - always_run: true
+    cluster: prow-workloads
     decorate: true
     decoration_config:
-      timeout: 3h
-    max_concurrency: 1
+      timeout: 3h0m0s
     labels:
       preset-dind-enabled: "true"
       preset-docker-mirror-proxy: "true"
-    cluster: prow-workloads
-    spec:
-      nodeSelector:
-        type: bare-metal-external
-      containers:
-      - image: quay.io/kubevirtci/golang:v20210316-d295087
-        command:
-        - "/usr/local/bin/runner.sh"
-        - "/bin/sh"
-        - "-c"
-        - "cd cluster-provision/k8s/1.18 && ../provision.sh"
-        # docker-in-docker needs privileged mode
-        securityContext:
-          privileged: true
-        resources:
-          requests:
-            memory: "8Gi"
-
-  - name: check-provision-k8s-1.19
-    always_run: true
-    optional: false
-    decorate: true
-    decoration_config:
-      timeout: 3h
+      preset-kubevirtci-installer-pull-token: "true"
+      rehearsal.allowed: "true"
+      vgpu: "true"
     max_concurrency: 1
-    labels:
-      preset-dind-enabled: "true"
-      preset-docker-mirror-proxy: "true"
-    cluster: prow-workloads
+    name: check-up-kind-1.23-vgpu
     spec:
-      nodeSelector:
-        type: bare-metal-external
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: vgpu
+                  operator: In
+                  values:
+                  - "true"
+              topologyKey: "kubernetes.io/hostname"
+            weight: 100
       containers:
-      - image: quay.io/kubevirtci/golang:v20210316-d295087
-        command:
-        - "/usr/local/bin/runner.sh"
-        - "/bin/sh"
-        - "-c"
-        - "cd cluster-provision/k8s/1.19 && ../provision.sh"
-        # docker-in-docker needs privileged mode
-        securityContext:
-          privileged: true
+      - command:
+        - /usr/local/bin/runner.sh
+        - /bin/bash
+        - -ce
+        - |
+          trap "echo teardown && make cluster-down" EXIT ERR SIGINT SIGTERM
+          make cluster-up
+          ./cluster-up/cluster/kind/check-cluster-up.sh
+        env:
+        - name: KUBEVIRT_PROVIDER
+          value: kind-1.23-vgpu
+        - name: KUBEVIRT_NUM_NODES
+          value: "3"
+        - name: RUN_KUBEVIRT_CONFORMANCE
+          value: "true"
+        - name: SONOBUOY_EXTRA_ARGS
+          value: "--plugin-env kubevirt-conformance.E2E_FOCUS=MediatedDevices --plugin-env kubevirt-conformance.E2E_SKIP=QUARANTINE"
+        image: quay.io/kubevirtci/golang-legacy:v20220810-a8f2e6c
+        name: ""
         resources:
           requests:
-            memory: "8Gi"
-
-  - name: check-provision-k8s-1.20
-    always_run: true
-    optional: false
+            memory: 15Gi
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /lib/modules
+          name: modules
+          readOnly: true
+        - mountPath: /sys/fs/cgroup
+          name: cgroup
+        - mountPath: /dev/vfio/
+          name: vfio
+      nodeSelector:
+        hardwareSupport: gpu
+      priorityClassName: vgpu
+      volumes:
+      - hostPath:
+          path: /lib/modules
+          type: Directory
+        name: modules
+      - hostPath:
+          path: /sys/fs/cgroup
+          type: Directory
+        name: cgroup
+      - hostPath:
+          path: /dev/vfio/
+          type: Directory
+        name: vfio
+  - always_run: false
+    cluster: prow-workloads
     decorate: true
-    decoration_config:
-      timeout: 3h
-    max_concurrency: 1
     labels:
-      preset-dind-enabled: "true"
+      preset-podman-in-container-enabled: "true"
       preset-docker-mirror-proxy: "true"
-    cluster: prow-workloads
-    spec:
-      nodeSelector:
-        type: bare-metal-external
-      containers:
-      - image: quay.io/kubevirtci/golang:v20210316-d295087
-        command:
-        - "/usr/local/bin/runner.sh"
-        - "/bin/sh"
-        - "-c"
-        - "cd cluster-provision/k8s/1.20 && ../provision.sh"
-        # docker-in-docker needs privileged mode
-        securityContext:
-          privileged: true
-        resources:
-          requests:
-            memory: "8Gi"
-  - name: check-provision-k8s-1.21
-    always_run: true
-    optional: false
-    decorate: true
-    decoration_config:
-      timeout: 3h
     max_concurrency: 1
-    labels:
-      preset-dind-enabled: "true"
-      preset-docker-mirror-proxy: "true"
-    cluster: prow-workloads
-    spec:
-      nodeSelector:
-        type: bare-metal-external
-      containers:
-      - image: quay.io/kubevirtci/golang:v20210316-d295087
-        command:
-        - "/usr/local/bin/runner.sh"
-        - "/bin/sh"
-        - "-c"
-        - "cd cluster-provision/k8s/1.21 && ../provision.sh"
-        # docker-in-docker needs privileged mode
-        securityContext:
-          privileged: true
-        resources:
-          requests:
-            memory: "8Gi"
-  - name: check-provision-k8s-1.20-cgroupsv2
-    always_run: false
+    name: check-gocli
     optional: true
-    decorate: true
-    decoration_config:
-      timeout: 3h
-    max_concurrency: 1
-    labels:
-      preset-dind-enabled: "true"
-      preset-docker-mirror-proxy: "true"
-    cluster: prow-workloads
     spec:
-      nodeSelector:
-        type: bare-metal-external
       containers:
-      - image: gcr.io/k8s-testimages/kubekins-e2e@sha256:8c80c98d035a0f285ad49b964e5d0b62004844f3340407367841618e80e1503c
-        command:
-        - "/usr/local/bin/runner.sh"
-        - "/bin/sh"
-        - "-c"
-        - "cd cluster-provision/k8s/1.20 && CGROUPV2=true ../provision.sh"
-        # docker-in-docker needs privileged mode
-        securityContext:
-          privileged: true
+      - command:
+        - /usr/local/bin/runner.sh
+        - /bin/bash
+        - -c
+        - cd cluster-provision/gocli/ && make all container
+        image: quay.io/kubevirtci/golang:v20220829-40e8aca
+        name: ""
         resources:
           requests:
-            memory: "8Gi"
-  - name: check-provision-k8s-1.21-cgroupsv2
-    always_run: false
-    optional: true
-    decorate: true
-    decoration_config:
-      timeout: 3h
-    max_concurrency: 1
-    labels:
-      preset-dind-enabled: "true"
-      preset-docker-mirror-proxy: "true"
-    cluster: prow-workloads
-    spec:
-      nodeSelector:
-        type: bare-metal-external
-      containers:
-      - image: gcr.io/k8s-testimages/kubekins-e2e@sha256:8c80c98d035a0f285ad49b964e5d0b62004844f3340407367841618e80e1503c
-        command:
-        - "/usr/local/bin/runner.sh"
-        - "/bin/sh"
-        - "-c"
-        - "cd cluster-provision/k8s/1.21 && CGROUPV2=true ../provision.sh"
-        # docker-in-docker needs privileged mode
+            memory: 1Gi
         securityContext:
           privileged: true
-        resources:
-          requests:
-            memory: "8Gi"
-  - name: check-provision-k8s-1.17
-    always_run: false
-    optional: true
+      nodeSelector:
+        type: bare-metal-external
+  - always_run: true
+    cluster: prow-workloads
     decorate: true
     decoration_config:
-      timeout: 3h
-    max_concurrency: 1
+      timeout: 3h0m0s
     labels:
-      preset-dind-enabled: "true"
+      preset-podman-in-container-enabled: "true"
       preset-docker-mirror-proxy: "true"
-    cluster: prow-workloads
+    max_concurrency: 2
+    name: check-provision-k8s-1.22
     spec:
-      nodeSelector:
-        type: bare-metal-external
       containers:
-      - image: quay.io/kubevirtci/golang:v20210316-d295087
-        command:
-        - "/usr/local/bin/runner.sh"
-        - "/bin/sh"
-        - "-c"
-        - "cd cluster-provision/k8s/1.17 && ../provision.sh"
-        # docker-in-docker needs privileged mode
-        securityContext:
-          privileged: true
+      - command:
+        - /usr/local/bin/runner.sh
+        - /bin/sh
+        - -c
+        - cd cluster-provision/k8s/1.22 && ../provision.sh
+        image: quay.io/kubevirtci/golang:v20220829-40e8aca
+        name: ""
         resources:
           requests:
-            memory: "8Gi"
-
-  - name: check-gocli
-    always_run: false
-    optional: true
-    decorate: true
-    max_concurrency: 1
-    labels:
-      preset-dind-enabled: "true"
-      preset-docker-mirror-proxy: "true"
-    cluster: prow-workloads
-    spec:
+            memory: 14Gi
+        securityContext:
+          privileged: true
       nodeSelector:
         type: bare-metal-external
+  - always_run: true
+    cluster: prow-workloads
+    decorate: true
+    decoration_config:
+      timeout: 3h0m0s
+    labels:
+      preset-podman-in-container-enabled: "true"
+      preset-docker-mirror-proxy: "true"
+    max_concurrency: 2
+    name: check-provision-k8s-1.23
+    spec:
       containers:
-        - image: quay.io/kubevirtci/golang:v20210316-d295087
-          command:
-            - "/usr/local/bin/runner.sh"
-            - "/bin/bash"
-            - "-c"
-            - "cd cluster-provision/gocli/ && make all container"
-          # docker-in-docker needs privileged mode
-          securityContext:
-            privileged: true
-          resources:
-            requests:
-              memory: "1Gi"
+      - command:
+        - /usr/local/bin/runner.sh
+        - /bin/sh
+        - -c
+        - cd cluster-provision/k8s/1.23 && ../provision.sh
+        image: quay.io/kubevirtci/golang:v20220829-40e8aca
+        name: ""
+        resources:
+          requests:
+            memory: 14Gi
+        securityContext:
+          privileged: true
+      nodeSelector:
+        type: bare-metal-external
+  - always_run: true
+    cluster: prow-workloads
+    decorate: true
+    decoration_config:
+      timeout: 20m0s
+    labels:
+      preset-podman-in-container-enabled: "true"
+      preset-docker-mirror-proxy: "true"
+    max_concurrency: 1
+    name: check-provision-alpine-with-test-tooling
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                - bare-metal-9
+      containers:
+      - command:
+        - /usr/local/bin/runner.sh
+        - /bin/sh
+        - -c
+        - dnf install -y genisoimage libvirt && cd cluster-provision/images/vm-image-builder
+          && ./create-containerdisk.sh alpine-cloud-init
+        image: quay.io/kubevirtci/golang:v20220829-40e8aca
+        name: ""
+        resources:
+          requests:
+            memory: 500M
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /lib/modules
+          name: modules
+          readOnly: true
+        - mountPath: /dev
+          name: devices
+      nodeSelector:
+        type: bare-metal-external
+      volumes:
+      - hostPath:
+          path: /lib/modules
+          type: Directory
+        name: modules
+      - hostPath:
+          path: /dev
+          type: Directory
+        name: devices
+  - always_run: false
+    optional: true
+    cluster: prow-workloads
+    decorate: true
+    decoration_config:
+      timeout: 3h0m0s
+    labels:
+      preset-podman-in-container-enabled: "true"
+      preset-docker-mirror-proxy: "true"
+    max_concurrency: 2
+    name: check-provision-k8s-1.24-psa
+    spec:
+      containers:
+      - command:
+        - /usr/local/bin/runner.sh
+        - /bin/sh
+        - -c
+        - cd cluster-provision/k8s/1.24-psa && ../provision.sh
+        image: quay.io/kubevirtci/golang:v20220829-40e8aca
+        name: ""
+        resources:
+          requests:
+            memory: 14Gi
+        securityContext:
+          privileged: true
+      nodeSelector:
+        type: bare-metal-external
+  - always_run: true
+    cluster: prow-workloads
+    decorate: true
+    decoration_config:
+      timeout: 3h0m0s
+    labels:
+      preset-podman-in-container-enabled: "true"
+      preset-docker-mirror-proxy: "true"
+    max_concurrency: 2
+    name: check-provision-k8s-1.24
+    spec:
+      containers:
+      - command:
+        - /usr/local/bin/runner.sh
+        - /bin/sh
+        - -c
+        - cd cluster-provision/k8s/1.24 && ../provision.sh
+        image: quay.io/kubevirtci/golang:v20220829-40e8aca
+        name: ""
+        resources:
+          requests:
+            memory: 14Gi
+        securityContext:
+          privileged: true
+      nodeSelector:
+        type: bare-metal-external
+  - always_run: true
+    cluster: prow-workloads
+    decorate: true
+    decoration_config:
+      timeout: 3h0m0s
+    labels:
+      preset-podman-in-container-enabled: "true"
+      preset-docker-mirror-proxy: "true"
+    max_concurrency: 2
+    name: check-provision-k8s-1.24-ipv6
+    spec:
+      containers:
+      - command:
+        - /usr/local/bin/runner.sh
+        - /bin/sh
+        - -c
+        - cd cluster-provision/k8s/1.24-ipv6 && ../provision.sh
+        image: quay.io/kubevirtci/golang:v20220829-40e8aca
+        name: ""
+        resources:
+          requests:
+            memory: 14Gi
+        securityContext:
+          privileged: true
+      nodeSelector:
+        type: bare-metal-external
+  - always_run: false
+    cluster: prow-workloads
+    decorate: true
+    decoration_config:
+      timeout: 3h0m0s
+    labels:
+      preset-podman-in-container-enabled: "true"
+      preset-docker-mirror-proxy: "true"
+    max_concurrency: 1
+    name: check-provision-k8s-1.25
+    optional: true
+    spec:
+      containers:
+      - command:
+        - /usr/local/bin/runner.sh
+        - /bin/sh
+        - -c
+        - cd cluster-provision/k8s/1.25 && ../provision.sh
+        image: quay.io/kubevirtci/golang:v20220829-40e8aca
+        name: ""
+        resources:
+          requests:
+            memory: 8Gi
+        securityContext:
+          privileged: true
+      nodeSelector:
+        type: bare-metal-external

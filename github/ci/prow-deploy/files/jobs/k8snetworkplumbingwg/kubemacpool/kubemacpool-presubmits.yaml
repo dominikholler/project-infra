@@ -12,18 +12,15 @@ presubmits:
       decoration_config:
         timeout: 3h
         grace_period: 5m
-      cluster: phx-prow
+      cluster: ibm-prow-jobs
       max_concurrency: 6
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
       spec:
-        nodeSelector:
-          type: vm
-          zone: ci
         containers:
-          - image: quay.io/kubevirtci/kubevirt-infra-bootstrap:v20201201-08dc4a9
+          - image: quay.io/kubevirtci/bootstrap:v20220823-3fed276
             securityContext:
               privileged: true
             command:
@@ -46,14 +43,14 @@ presubmits:
         grace_period: 5m
       max_concurrency: 6
       labels:
-        preset-dind-enabled: "true"
+        preset-podman-in-container-enabled: "true"
         preset-docker-mirror-proxy: "true"
         preset-shared-images: "true"
       spec:
         nodeSelector:
           type: bare-metal-external
         containers:
-          - image: quay.io/kubevirtci/kubevirt-infra-bootstrap:v20201201-08dc4a9
+          - image: quay.io/kubevirtci/bootstrap:v20220823-3fed276
             securityContext:
               privileged: true
             resources:
